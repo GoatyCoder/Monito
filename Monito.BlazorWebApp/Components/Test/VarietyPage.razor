@@ -1,0 +1,130 @@
+﻿@page "/varieties/{rawProductId:guid}"
+@inject IVarietyService VarietyService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<h3>Gestione Varietà per Raw Product</h3>
+
+<!-- Form per aggiungere o modificare Variety -->
+<EditForm FormName="VarietyForm" Model="@VarietyForm" OnValidSubmit="SaveVarietyAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label>Nome:</label>
+        <InputText @bind-Value="VarietyForm.Name" />
+    </div>
+    <div>
+        <label>Codice:</label>
+        <InputText @bind-Value="VarietyForm.ShortCode" />
+    </div>
+    <div>
+        <label>Descrizione:</label>
+        <InputText @bind-Value="VarietyForm.Description" />
+    </div>
+
+    <button type="submit">Salva</button>
+    <button type="button" @onclick="ClearForm">Annulla</button>
+</EditForm>
+
+<hr />
+
+<!-- Lista di Varieties -->
+@if (Varieties != null)
+{
+    <ul>
+        @foreach (var variety in Varieties)
+        {
+            <li>
+                <strong>@variety.Name</strong> - @variety.ShortCode
+                <button @onclick="() => EditVariety(variety.Id)">Modifica</button>
+                <button @onclick="() => DeleteVarietyAsync(variety.Id)">Elimina</button>
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p>Caricamento in corso...</p>
+}
+
+@code {
+    [Parameter] public Guid RawProductId { get; set; }
+    private List<VarietyDto> Varieties = new();
+    private VarietyViewModel VarietyForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadVarietiesAsync();
+    }
+
+    private async Task LoadVarietiesAsync()
+    {
+        var result = await VarietyService.GetByRawProductIdAsync(RawProductId);
+        if (result.IsSuccess)
+        {
+            Varieties = result.Value.ToList();
+        }
+    }
+
+    private async Task SaveVarietyAsync()
+    {
+        if (VarietyForm.Id == Guid.Empty)
+        {
+            var addResult = await VarietyService.AddAsync(new AddVarietyDto(
+                VarietyForm.Name,
+                VarietyForm.ShortCode,
+                VarietyForm.Description,
+                RawProductId));
+            if (addResult.IsSuccess)
+            {
+                VarietyForm.Id = addResult.Value;
+                await LoadVarietiesAsync();
+            }
+        }
+        else
+        {
+            var updateResult = await VarietyService.UpdateAsync(new UpdateVarietyDto(
+                VarietyForm.Id,
+                VarietyForm.Name,
+                VarietyForm.ShortCode,
+                VarietyForm.Description,
+                RawProductId));
+            if (updateResult.IsSuccess)
+            {
+                await LoadVarietiesAsync();
+            }
+        }
+        ClearForm();
+    }
+
+    private void EditVariety(Guid id)
+    {
+        var variety = Varieties.FirstOrDefault(v => v.Id == id);
+        if (variety != null)
+        {
+            VarietyForm = new VarietyViewModel
+                {
+                    Id = variety.Id,
+                    Name = variety.Name,
+                    ShortCode = variety.ShortCode,
+                    Description = variety.Description,
+                    RawProductId = variety.RawProductId
+                };
+        }
+    }
+
+    private async Task DeleteVarietyAsync(Guid id)
+    {
+        var result = await VarietyService.DeleteByIdAsync(id);
+        if (result.IsSuccess)
+        {
+            await LoadVarietiesAsync();
+        }
+    }
+
+    private void ClearForm()
+    {
+        VarietyForm = new VarietyViewModel { RawProductId = RawProductId };
+    }
+}

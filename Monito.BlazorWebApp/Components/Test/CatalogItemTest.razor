@@ -1,0 +1,141 @@
+﻿@page "/catalog2"
+@inject ICatalogItemService CatalogService
+@inject IRawProductService RawProductService
+@inject IMapper Mapper;
+@rendermode InteractiveServer
+
+<h3>Catalog Item Management</h3>
+
+<!-- Form per aggiungere o modificare CatalogItem -->
+<EditForm Model="@CurrentCatalogItem" OnValidSubmit="SaveCatalogItemAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label>Nome:</label>
+        <InputText @bind-Value="CurrentCatalogItem.Name" />
+    </div>
+    <div>
+        <label>Codice:</label>
+        <InputText @bind-Value="CurrentCatalogItem.ShortCode" />
+    </div>
+    <div>
+        <label>Descrizione:</label>
+        <InputText @bind-Value="CurrentCatalogItem.Description" />
+    </div>
+    <div>
+        <label>Ean:</label>
+        <InputText @bind-Value="CurrentCatalogItem.Ean" />
+    </div>
+    <div>
+        <label>Weight:</label>
+        <InputNumber @bind-Value="CurrentCatalogItem.TotalWeight" />
+    </div>
+    <div>
+        <label>Raw Product:</label>
+        <InputSelect @bind-Value="CurrentCatalogItem.RawProductId">
+            @foreach (var rawProduct in RawProducts)
+            {
+                <option value="@rawProduct.Id">@rawProduct.Name</option>
+            }
+        </InputSelect>
+    </div>
+    <button type="submit">Save</button>
+    <button type="button" @onclick="ClearForm">Cancel</button>
+</EditForm>
+
+<hr />
+
+<!-- Lista di CatalogItems -->
+@if (CatalogItems != null)
+{
+    <ul>
+        @foreach (var item in CatalogItems)
+        {
+            <li>
+                <strong>@item.Name</strong> - @item.ShortCode
+                <button @onclick="() => EditCatalogItem(item.Id)">Edit</button>
+                <button @onclick="() => DeleteCatalogAsync(item.Id)">Delete</button>
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p>Loading...</p>
+}
+
+@code {
+    private List<CatalogItemViewModel> CatalogItems = new();
+    private CatalogItemViewModel CurrentCatalogItem = new();
+    private List<RawProductDto> RawProducts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRawProductsAsync();
+        await LoadCatalogItemsAsync();
+    }
+
+    private async Task LoadRawProductsAsync()
+    {
+        var result = await RawProductService.GetAllAsync();
+        if (result.IsSuccess)
+        {
+            RawProducts = Mapper.Map<List<RawProductDto>>(result.Value.ToList());
+        }
+    }
+
+    private async Task LoadCatalogItemsAsync()
+    {
+        var result = await CatalogService.GetAllAsync();
+        if (result.IsSuccess)
+        {
+            CatalogItems = Mapper.Map<List<CatalogItemViewModel>>(result.Value.ToList());
+        }
+    }
+
+    private async Task SaveCatalogItemAsync()
+    {
+        if (CurrentCatalogItem.Id == Guid.Empty)
+        {
+            var addResult = await CatalogService.AddAsync(Mapper.Map<AddCatalogItemDto>(CurrentCatalogItem));
+            if (addResult.IsSuccess)
+            {
+                CurrentCatalogItem.Id = addResult.Value;
+                await LoadCatalogItemsAsync();
+            }
+        }
+        else
+        {
+            var updateResult = await CatalogService.UpdateAsync(Mapper.Map<UpdateCatalogItemDto>(CurrentCatalogItem));
+            if (updateResult.IsSuccess)
+            {
+                await LoadCatalogItemsAsync();
+            }
+        }
+        ClearForm();
+    }
+
+    private void EditCatalogItem(Guid id)
+    {
+        var item = CatalogItems.FirstOrDefault(i => i.Id == id);
+        if (item != null)
+        {
+            CurrentCatalogItem = Mapper.Map<CatalogItemViewModel>(item);
+        }
+    }
+
+    private async Task DeleteCatalogAsync(Guid id)
+    {
+        var result = await CatalogService.DeleteByIdAsync(id);
+        if (result.IsSuccess)
+        {
+            await LoadCatalogItemsAsync();
+        }
+    }
+
+    private void ClearForm()
+    {
+        CurrentCatalogItem = new CatalogItemViewModel();
+    }
+}

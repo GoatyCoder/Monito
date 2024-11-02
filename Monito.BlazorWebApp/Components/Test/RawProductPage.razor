@@ -1,0 +1,136 @@
+﻿@page "/rawproducts"
+@inject IRawProductService RawProductService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<h3>Gestione Raw Products</h3>
+
+<!-- Form per aggiungere o modificare RawProduct -->
+<EditForm FormName="RawProductForm" Model="@RawProductForm" OnValidSubmit="SaveRawProductAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label>Nome:</label>
+        <InputText @bind-Value="RawProductForm.Name" />
+    </div>
+    <div>
+        <label>Codice:</label>
+        <InputText @bind-Value="RawProductForm.ShortCode" />
+    </div>
+    <div>
+        <label>Descrizione:</label>
+        <InputText @bind-Value="RawProductForm.Description" />
+    </div>
+    <div>
+        <label>Descrizione:</label>
+        <InputText @bind-Value="RawProductForm.Description" />
+    </div>
+
+    <button type="submit">Salva</button>
+    <button type="button" @onclick="ClearForm">Annulla</button>
+</EditForm>
+
+<hr />
+
+<!-- Lista di RawProducts -->
+@if (RawProducts != null)
+{
+    <ul>
+        @foreach (var product in RawProducts)
+        {
+            <li>
+                <strong>@product.Name</strong> - @product.ShortCode
+                <button @onclick="() => EditRawProduct(product.Id)">Modifica</button>
+                <button @onclick="() => DeleteRawProductAsync(product.Id)">Elimina</button>
+                <button @onclick="() => NavigateToVarietyPage(product.Id)">View Varieties</button>
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p>Caricamento in corso...</p>
+}
+
+@code {
+    private List<RawProductDto> RawProducts = new();
+    private RawProductViewModel RawProductForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRawProductsAsync();
+    }
+
+    private async Task LoadRawProductsAsync()
+    {
+        var result = await RawProductService.GetAllAsync();
+        if (result.IsSuccess)
+        {
+            RawProducts = result.Value.ToList();
+        }
+    }
+
+    private async Task SaveRawProductAsync()
+    {
+        if (RawProductForm.Id == Guid.Empty)
+        {
+            var addResult = await RawProductService.AddAsync(new AddRawProductDto(
+                RawProductForm.Name,
+                RawProductForm.ShortCode,
+                RawProductForm.Description));
+            if (addResult.IsSuccess)
+            {
+                RawProductForm.Id = addResult.Value;
+                await LoadRawProductsAsync();
+            }
+        }
+        else
+        {
+            var updateResult = await RawProductService.UpdateAsync(new UpdateRawProductDto(
+                RawProductForm.Id,
+                RawProductForm.Name,
+                RawProductForm.ShortCode,
+                RawProductForm.Description));
+            if (updateResult.IsSuccess)
+            {
+                await LoadRawProductsAsync();
+            }
+        }
+        ClearForm();
+    }
+
+    private void EditRawProduct(Guid id)
+    {
+        var product = RawProducts.FirstOrDefault(rp => rp.Id == id);
+        if (product != null)
+        {
+            RawProductForm = new RawProductViewModel
+                {
+                    Id = product.Id,
+                    Name = product.Name,
+                    ShortCode = product.ShortCode,
+                    Description = product.Description
+                };
+        }
+    }
+
+    private async Task DeleteRawProductAsync(Guid id)
+    {
+        var result = await RawProductService.DeleteByIdAsync(id);
+        if (result.IsSuccess)
+        {
+            await LoadRawProductsAsync();
+        }
+    }
+
+    private void NavigateToVarietyPage(Guid rawProductId)
+    {
+        NavigationManager.NavigateTo($"/varieties/{rawProductId}");
+    }
+
+    private void ClearForm()
+    {
+        RawProductForm = new RawProductViewModel();
+    }
+}

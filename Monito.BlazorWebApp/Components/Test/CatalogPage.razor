@@ -1,0 +1,177 @@
+﻿@page "/catalog"
+@inject ICatalogItemService CatalogService
+@inject IRawProductService RawProductService
+@inject NavigationManager NavigationManager
+@inject IMapper Mapper;
+@rendermode InteractiveServer
+
+<h3>CatalogPage</h3>
+
+<!-- Form per aggiungere o modificare RawProduct -->
+<EditForm FormName="CatalogItemForm" Model="@CurrentCatalogItem" OnValidSubmit="SaveRawProductAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label>Nome:</label>
+        <InputText @bind-Value="CurrentCatalogItem.Name" />
+    </div>
+    <div>
+        <label>Codice:</label>
+        <InputText @bind-Value="CurrentCatalogItem.ShortCode" />
+    </div>
+    <div>
+        <label>Descrizione:</label>
+        <InputText @bind-Value="CurrentCatalogItem.Description" />
+    </div>
+    <div>
+        <label>Ean:</label>
+        <InputText @bind-Value="CurrentCatalogItem.Ean" />
+    </div>
+    <div>
+        <label>Weight:</label>
+        <InputNumber @bind-Value="CurrentCatalogItem.TotalWeight" />
+    </div>
+    <div>
+        <label>Ean:</label>
+        <InputSelect  @bind-Value="CurrentCatalogItem.RawProductId">
+            @if (CurrentCatalogItem.Id == Guid.Empty)
+            {
+                <option selected value="">None</option>
+            }
+            else
+            {
+                // Object reference not set to an instance of an object ....
+                <option selected value="@CurrentCatalogItem.Id">@CurrentCatalogItem.RawProductName</option>
+            }
+            @foreach (RawProductDto rawProduct in RawProducts.Where(x => x.Id != CurrentCatalogItem.Id))
+            {
+                <option value="@rawProduct.Id">@rawProduct.Name</option>
+            }
+@*             @if (CurrentCatalogItem.RawProductId != Guid.Empty)
+            {
+                <option value="">None</option>
+            } *@
+        </InputSelect>
+    </div>
+
+    <button type="submit">Salva</button>
+    <button type="button" @onclick="ClearForm">Annulla</button>
+</EditForm>
+
+<hr />
+
+<!-- Lista di RawProducts -->
+@if (CatalogItems != null)
+{
+    <ul>
+        @foreach (var item in CatalogItems)
+        {
+            <li>
+                <strong>@item.Name</strong> - @item.ShortCode
+                <button @onclick="() => EditCatalogItem(item.Id)">Modifica</button>
+                <button @onclick="() => DeleteCatalogAsync(item.Id)">Elimina</button>
+                <button @onclick="() => NavigateToVarietyPage(item.Id)">View Varieties</button>
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p>Caricamento in corso...</p>
+}
+
+@code {
+    private List<CatalogItemViewModel> CatalogItems = new();
+    private CatalogItemViewModel CurrentCatalogItem = new();
+    private List<RawProductDto> RawProducts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await RawProductService.GetAllAsync();
+        if (result.IsSuccess)
+        {
+            RawProducts = Mapper.Map<List<RawProductDto>>(result.Value.ToList());
+        }
+
+        await LoadRawProductsAsync();
+    }
+
+    private async Task LoadRawProductsAsync()
+    {
+        var result = await CatalogService.GetAllAsync();
+        if (result.IsSuccess)
+        {
+            CatalogItems = Mapper.Map<List<CatalogItemViewModel>>(result.Value.ToList());
+        }
+    }
+
+    private async Task SaveRawProductAsync()
+    {
+        if (CurrentCatalogItem.Id == Guid.Empty)
+        {
+            var addResult = await CatalogService.AddAsync(new AddCatalogItemDto(
+                CurrentCatalogItem.Name,
+                CurrentCatalogItem.ShortCode,
+                CurrentCatalogItem.Description,
+                CurrentCatalogItem.Ean,
+                CurrentCatalogItem.TotalWeight,
+                CurrentCatalogItem.RawProductId));
+            if (addResult.IsSuccess)
+            {
+                CurrentCatalogItem.Id = addResult.Value;
+                await LoadRawProductsAsync();
+            }
+        }
+        else
+        {
+            var updateResult = await CatalogService.UpdateAsync(new UpdateCatalogItemDto(
+                CurrentCatalogItem.Id,
+                CurrentCatalogItem.Name,
+                CurrentCatalogItem.ShortCode,
+                CurrentCatalogItem.Description,
+                CurrentCatalogItem.Ean,
+                CurrentCatalogItem.TotalWeight,
+                CurrentCatalogItem.RawProductId));
+            if (updateResult.IsSuccess)
+            {
+                await LoadRawProductsAsync();
+            }
+        }
+        ClearForm();
+    }
+
+    private void EditCatalogItem(Guid id)
+    {
+        var product = CatalogItems.FirstOrDefault(rp => rp.Id == id);
+        if (product != null)
+        {
+            CurrentCatalogItem = new CatalogItemViewModel
+                {
+                    Id = product.Id,
+                    Name = product.Name,
+                    ShortCode = product.ShortCode,
+                    Description = product.Description
+                };
+        }
+    }
+
+    private async Task DeleteCatalogAsync(Guid id)
+    {
+        var result = await CatalogService.DeleteByIdAsync(id);
+        if (result.IsSuccess)
+        {
+            await LoadRawProductsAsync();
+        }
+    }
+
+    private void NavigateToVarietyPage(Guid rawProductId)
+    {
+        NavigationManager.NavigateTo($"/varieties/{rawProductId}");
+    }
+
+    private void ClearForm()
+    {
+        CurrentCatalogItem = new CatalogItemViewModel();
+    }
+}

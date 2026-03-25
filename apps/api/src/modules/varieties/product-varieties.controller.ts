@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -21,7 +20,7 @@ export class ProductVarietiesController {
   @ApiResponse({ status: 200, description: 'List of varieties', type: [VarietyResponseDto] })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async findByProductId(
-    @Param('productId', ParseUUIDPipe) productId: string,
+    @Param('productId') productId: string,
   ): Promise<VarietyResponseDto[]> {
     return this.varietiesService.findByProductId(productId);
   }

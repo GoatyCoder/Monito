@@ -9,7 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
@@ -52,7 +51,7 @@ export class ProductsController {
   @ApiResponse({ status: 200, description: 'Product details', type: ProductWithVarietiesResponseDto })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async findById(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: string,
   ): Promise<ProductWithVarietiesResponseDto> {
     return this.productsService.findById(id, includeDeleted === 'true');
@@ -64,7 +63,7 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 409, description: 'Code already exists' })
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateProductDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<ProductResponseDto> {
@@ -78,7 +77,7 @@ export class ProductsController {
   @ApiResponse({ status: 204, description: 'Product deleted' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async delete(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('force') force?: string,
     @CurrentUser() user?: JwtPayload,
   ): Promise<void> {
@@ -90,7 +89,7 @@ export class ProductsController {
   @ApiResponse({ status: 200, description: 'Product restored', type: ProductResponseDto })
   @ApiResponse({ status: 404, description: 'Product not found or not deleted' })
   async restore(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<ProductResponseDto> {
     return this.productsService.restore(id, user?.sub);

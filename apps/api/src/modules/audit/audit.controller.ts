@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
@@ -66,7 +66,7 @@ export class AuditController {
   @ApiParam({ name: 'userId', description: 'User ID (UUID)' })
   @ApiResponse({ status: 200, description: 'List of audit logs for user' })
   async findByUser(
-    @Param('userId', ParseUUIDPipe) userId: string,
+    @Param('userId') userId: string,
     @Query() query: AuditQueryDto,
   ) {
     return this.auditService.findAll({

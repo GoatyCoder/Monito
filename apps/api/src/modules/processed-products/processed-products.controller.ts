@@ -9,7 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ProcessedProductsService } from './processed-products.service';
@@ -57,7 +56,7 @@ export class ProcessedProductsController {
   @ApiResponse({ status: 200, type: ProcessedProductResponseDto })
   @ApiResponse({ status: 404, description: 'Processed product not found' })
   findOne(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: string,
   ) {
     return this.processedProductsService.findOne(id, includeDeleted === 'true');
@@ -68,7 +67,7 @@ export class ProcessedProductsController {
   @ApiResponse({ status: 200, type: ProcessedProductResponseDto })
   @ApiResponse({ status: 404, description: 'Processed product not found' })
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() updateDto: UpdateProcessedProductDto,
     @CurrentUser() user: JwtPayload,
   ) {
@@ -82,7 +81,7 @@ export class ProcessedProductsController {
   @ApiResponse({ status: 204, description: 'Processed product deleted' })
   @ApiResponse({ status: 404, description: 'Processed product not found' })
   remove(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('force') force?: string,
     @CurrentUser() user?: JwtPayload,
   ) {
@@ -94,7 +93,7 @@ export class ProcessedProductsController {
   @ApiResponse({ status: 200, type: ProcessedProductResponseDto })
   @ApiResponse({ status: 404, description: 'Processed product not found or not deleted' })
   restore(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.processedProductsService.restore(id, user?.sub);

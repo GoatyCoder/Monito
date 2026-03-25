@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MaxLength, Matches, IsUUID } from 'class-validator';
+import { IsString, MaxLength, Matches } from 'class-validator';
 
 export class CreateFieldLotDto {
   @ApiProperty({ example: 'LOT2026001', maxLength: 16 })
@@ -14,6 +14,6 @@ export class CreateFieldLotDto {
   supplier: string;
 
   @ApiProperty()
-  @IsUUID()
+  @IsString()
   varietyId: string;
 }

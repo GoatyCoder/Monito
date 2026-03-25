@@ -9,7 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { VarietiesService } from './varieties.service';
@@ -53,7 +52,7 @@ export class VarietiesController {
   @ApiResponse({ status: 200, description: 'Variety details', type: VarietyResponseDto })
   @ApiResponse({ status: 404, description: 'Variety not found' })
   async findById(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: string,
   ): Promise<VarietyResponseDto> {
     return this.varietiesService.findById(id, includeDeleted === 'true');
@@ -65,7 +64,7 @@ export class VarietiesController {
   @ApiResponse({ status: 404, description: 'Variety not found' })
   @ApiResponse({ status: 409, description: 'Code already exists' })
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateVarietyDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<VarietyResponseDto> {
@@ -79,7 +78,7 @@ export class VarietiesController {
   @ApiResponse({ status: 204, description: 'Variety deleted' })
   @ApiResponse({ status: 404, description: 'Variety not found' })
   async delete(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('force') force?: string,
     @CurrentUser() user?: JwtPayload,
   ): Promise<void> {
@@ -91,7 +90,7 @@ export class VarietiesController {
   @ApiResponse({ status: 200, description: 'Variety restored', type: VarietyResponseDto })
   @ApiResponse({ status: 404, description: 'Variety not found or not deleted' })
   async restore(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<VarietyResponseDto> {
     return this.varietiesService.restore(id, user?.sub);

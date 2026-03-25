@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, Matches, IsUUID } from 'class-validator';
+import { IsOptional, IsString, MaxLength, Matches } from 'class-validator';
 
 export class CreateVarietyDto {
   @ApiProperty({ example: 'CRIMSON', maxLength: 32 })
@@ -19,6 +19,6 @@ export class CreateVarietyDto {
   description?: string;
 
   @ApiProperty()
-  @IsUUID()
+  @IsString()
   productId: string;
 }

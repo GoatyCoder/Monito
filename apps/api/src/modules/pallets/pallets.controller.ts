@@ -9,7 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { PalletsService } from './pallets.service';
@@ -63,7 +62,7 @@ export class PalletsController {
   @ApiResponse({ status: 200, description: 'Pallet details', type: PalletWithDetailsResponseDto })
   @ApiResponse({ status: 404, description: 'Pallet not found' })
   async findById(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: string,
   ): Promise<PalletWithDetailsResponseDto> {
     return this.palletsService.findById(id, includeDeleted === 'true');
@@ -74,7 +73,7 @@ export class PalletsController {
   @ApiResponse({ status: 200, description: 'Pallet updated', type: PalletResponseDto })
   @ApiResponse({ status: 404, description: 'Pallet not found' })
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdatePalletDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PalletResponseDto> {
@@ -88,7 +87,7 @@ export class PalletsController {
   @ApiResponse({ status: 204, description: 'Pallet deleted' })
   @ApiResponse({ status: 404, description: 'Pallet not found' })
   async delete(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('force') force?: string,
     @CurrentUser() user?: JwtPayload,
   ): Promise<void> {
@@ -100,7 +99,7 @@ export class PalletsController {
   @ApiResponse({ status: 200, description: 'Pallet restored', type: PalletResponseDto })
   @ApiResponse({ status: 404, description: 'Pallet not found or not deleted' })
   async restore(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<PalletResponseDto> {
     return this.palletsService.restore(id, user?.sub);

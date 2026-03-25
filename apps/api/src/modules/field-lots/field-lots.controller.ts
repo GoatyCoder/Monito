@@ -9,7 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { FieldLotsService } from './field-lots.service';
@@ -52,7 +51,7 @@ export class FieldLotsController {
   @ApiResponse({ status: 200, description: 'FieldLot details', type: FieldLotResponseDto })
   @ApiResponse({ status: 404, description: 'FieldLot not found' })
   async findById(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: string,
   ): Promise<FieldLotResponseDto> {
     return this.fieldLotsService.findById(id, includeDeleted === 'true');
@@ -63,7 +62,7 @@ export class FieldLotsController {
   @ApiResponse({ status: 200, description: 'FieldLot updated', type: FieldLotResponseDto })
   @ApiResponse({ status: 404, description: 'FieldLot not found' })
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateFieldLotDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<FieldLotResponseDto> {
@@ -77,7 +76,7 @@ export class FieldLotsController {
   @ApiResponse({ status: 204, description: 'FieldLot deleted' })
   @ApiResponse({ status: 404, description: 'FieldLot not found' })
   async delete(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Query('force') force?: string,
     @CurrentUser() user?: JwtPayload,
   ): Promise<void> {
@@ -89,7 +88,7 @@ export class FieldLotsController {
   @ApiResponse({ status: 200, description: 'FieldLot restored', type: FieldLotResponseDto })
   @ApiResponse({ status: 404, description: 'FieldLot not found or not deleted' })
   async restore(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<FieldLotResponseDto> {
     return this.fieldLotsService.restore(id, user?.sub);

@@ -143,11 +143,19 @@ src/
 - Rate limiting su tutte le rotte auth (`@nestjs/throttler`)
 - Non committare mai `.env` — usa `.env.example` come riferimento
 - Valida e sanitizza sempre l'input con class-validator (nessun bypass)
+- Usa RolesGuard per proteggere endpoint amministrativi
 
 ### 10. Logging
 - Usa il `Logger` di NestJS (non `console.log`)
 - Non loggare mai dati sensibili (password, token, PII)
+- Non loggare porzioni di secret o header Authorization
 - In produzione il log level sarà `warn` o `error`
+
+### 11. Autorizzazione (RBAC)
+- Usa `@Roles('ADMIN')` decorator per endpoint riservati agli admin
+- Applica RolesGuard ai controller
+- Endpoint pubblici: login, refresh, logout
+- Endpoint protetti: tutte le operazioni CRUD su utenti
 
 ---
 

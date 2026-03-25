@@ -203,6 +203,34 @@ interface JwtPayload {
 }
 ```
 
+### Autorizzazione (RBAC)
+Usa RolesGuard per proteggere gli endpoint:
+
+```ts
+// Creare il guard
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles) return true;
+    
+    const { user } = context.switchToHttp().getRequest();
+    return requiredRoles.includes(user.role);
+  }
+}
+
+// Usare il decorator
+@Roles(Role.ADMIN)
+@UseGuards(RolesGuard)
+@Post()
+create(@Body() dto: CreateUserDto) { ... }
+```
+
 ### Decorator `@CurrentUser()`
 Crea un decorator per estrarre l'utente corrente dalla request:
 ```ts
@@ -479,3 +507,5 @@ SQLite non necessita di un container — il file `.db` è in `prisma/`.
 - [ ] Nessun `ParseUUIDPipe` per campi CUID
 - [ ] Nessun `@IsUUID()` nei DTOs per foreign keys
 - [ ] Nessun `new PrismaClient()` nei service (usa `PrismaService`)
+- [ ] Endpoint amministrativi protetti con `@Roles('ADMIN')`
+- [ ] Nessun log di token o porzioni di secret

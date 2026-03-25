@@ -23,7 +23,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
-    this.logger.debug(`Auth header: ${authHeader}`);
 
     if (!authHeader) {
       throw new UnauthorizedException('No authorization header');

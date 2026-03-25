@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -133,6 +134,6 @@ export class AuthService {
   }
 
   private hashToken(token: string): string {
-    return Buffer.from(token).toString('base64').slice(0, 32);
+    return createHash('sha256').update(token).digest('hex');
   }
 }

@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 15 118 110;
+    --color-primary-foreground: 255 255 255;
+    --color-secondary: 240 253 244;
+    --color-secondary-foreground: 22 101 52;
+    --color-destructive: 220 38 38;
+    --color-destructive-foreground: 255 255 255;
+    --color-success: 16 185 129;
+    --color-warning: 245 158 11;
+    --color-background: 248 250 252;
+    --color-surface: 255 255 255;
+    --color-foreground: 30 41 59;
+    --color-foreground-muted: 100 116 139;
+    --color-border: 226 232 240;
+    --color-input: 226 232 240;
+    --color-ring: 15 118 110;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .not-sr-only {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

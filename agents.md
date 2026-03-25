@@ -191,3 +191,4 @@ docker-compose down
 - ❌ Usare `ParseUUIDPipe` per campi CUID (Prisma usa CUID, non UUID)
 - ❌ Usare `@IsUUID()` nei DTOs per foreign keys — usare `@IsString()`
 - ❌ Creare `new PrismaClient()` nei service — usare Dependency Injection con `PrismaService`
+- ❌ Usare Base64 per token blacklist — usare SHA-256 hash irreversibile

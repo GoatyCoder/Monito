@@ -413,7 +413,41 @@ describe('UsersService', () => {
 
 ---
 
-## 12. Docker Compose (sviluppo locale)
+## 12. Gestione errori
+
+- Usa le eccezioni built-in di NestJS (`NotFoundException`, `BadRequestException`, `ConflictException`, ecc.)
+- Non fare mai `throw new Error(...)` nei service — usa le HttpException di Nest
+- Registra un `GlobalExceptionFilter` in `main.ts`
+- Non esporre stack trace in produzione
+
+### Verifica duplicati
+Controlla sempre se esiste un record con lo stesso codice/unique field prima di creare o modificare:
+
+```typescript
+// ✅ CORRETTO - verifica prima
+const existing = await this.prisma.product.findUnique({ where: { code: dto.code } });
+if (existing) {
+  throw new ConflictException('Product with this code already exists');
+}
+
+// ❌ ERRATO - lascia che Prisma generi errore
+// Restituisce 500 Internal Server Error invece di 409 Conflict
+```
+
+### Token blacklist
+Quando implementi blacklist per token JWT, usa un hash crittografico irreversibile:
+
+```typescript
+import { createHash } from 'crypto';
+
+private hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+```
+
+---
+
+## 13. Docker Compose (sviluppo locale)
 
 ```yaml
 services:

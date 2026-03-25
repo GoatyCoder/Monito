@@ -1,0 +1,34 @@
+{
+  "name": "monito",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter @monito/api build",
+    "dev": "pnpm --filter @monito/api start:dev",
+    "start": "pnpm --filter @monito/api start",
+    "lint": "pnpm --filter @monito/api lint",
+    "test": "pnpm --filter @monito/api test",
+    "test:cov": "pnpm --filter @monito/api test:cov",
+    "test:e2e": "pnpm --filter @monito/api test:e2e",
+    "generate": "prisma generate --schema prisma/schema.prisma",
+    "migrate": "prisma migrate dev --schema prisma/schema.prisma --name init",
+    "migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
+    "studio": "prisma studio --schema prisma/schema.prisma",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@libsql/client": "^0.14.0",
+    "@prisma/adapter-libsql": "^7.5.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^22.0.0",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.3.1",
+    "prisma": "^7.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

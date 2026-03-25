@@ -1,0 +1,26 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class FieldLotResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  lotCode: string;
+
+  @ApiProperty()
+  supplier: string;
+
+  @ApiProperty()
+  varietyId: string;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiPropertyOptional()
+  updatedAt: Date;
+}
+
+export class FieldLotWithDetailsResponseDto extends FieldLotResponseDto {
+  @ApiProperty({ type: () => Object })
+  variety: unknown;
+}

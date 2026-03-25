@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  firstName String
+  surname   String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  name        String
+  description String?
+  varieties   Variety[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@map("products")
+}
+
+model Variety {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  name        String
+  description String?
+  product     Product   @relation(fields: [productId], references: [id])
+  productId   String
+  fieldLots   FieldLot[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@map("varieties")
+}
+
+model FieldLot {
+  id        String    @id @default(cuid())
+  lotCode   String    @unique
+  supplier  String
+  variety   Variety   @relation(fields: [varietyId], references: [id])
+  varietyId String
+  pallets   Pallet[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("field_lots")
+}
+
+model ProcessedProduct {
+  id             String      @id @default(cuid())
+  code           String      @unique
+  name           String
+  description    String?
+  ean            String?     @unique
+  weightPerBoxKg Float
+  palletItems    PalletItem[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+
+  @@map("processed_products")
+}
+
+model Packaging {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  name        String
+  description String?
+  palletItems PalletItem[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  @@map("packagings")
+}
+
+model Pallet {
+  id           String        @id @default(cuid())
+  palletNumber String        @unique
+  netWeightKg  Float
+  fieldLot     FieldLot      @relation(fields: [fieldLotId], references: [id])
+  fieldLotId   String
+  createdBy    String
+  items        PalletItem[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@map("pallets")
+}
+
+model PalletItem {
+  id                String          @id @default(cuid())
+  quantity          Int
+  weightKg          Float
+  pallet            Pallet          @relation(fields: [palletId], references: [id], onDelete: Cascade)
+  palletId          String
+  processedProduct  ProcessedProduct @relation(fields: [processedProductId], references: [id])
+  processedProductId String
+  packaging         Packaging       @relation(fields: [packagingId], references: [id])
+  packagingId       String
+  createdAt         DateTime        @default(now())
+
+  @@map("pallet_items")
+}
+
+model DailyPalletCounter {
+  id         String @id
+  lastNumber Int    @default(0)
+
+  @@map("daily_pallet_counters")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  entity      String
+  entityId    String
+  operation   String
+  oldValue    String?
+  newValue    String?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}

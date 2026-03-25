@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "prisma"
+allowBuilds:
+  '@nestjs/core': false
+  '@prisma/engines': false
+  '@scarf/scarf': false
+  bcrypt: false
+  better-sqlite3: false
+  esbuild: false
+  prisma: false

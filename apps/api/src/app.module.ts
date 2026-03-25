@@ -43,7 +43,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
         BCRYPT_SALT_ROUNDS: Joi.number().min(10).max(20).default(12),
       }),
       validationOptions: {
-        allowUnknown: false,
+        allowUnknown: true,
         abortEarly: true,
       },
     }),

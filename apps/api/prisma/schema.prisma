@@ -8,16 +8,27 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  firstName String
-  surname   String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String       @id @default(cuid())
+  username    String       @unique
+  password    String
+  firstName   String
+  surname     String
+  role        Role         @default(USER)
+  avatarColor AvatarColor? @default(BLUE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@map("users")
+}
+
+enum AvatarColor {
+  BLUE
+  GREEN
+  VIOLET
+  ORANGE
+  RED
+  PINK
+  GRAY
 }
 
 enum Role {

@@ -82,6 +82,20 @@ export class AuthService {
     username: string,
     role: 'USER' | 'ADMIN',
   ): Promise<AuthResponseDto> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        surname: true,
+        role: true,
+        avatarColor: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
     const payload = {
       sub: userId,
       username,
@@ -101,7 +115,7 @@ export class AuthService {
       expiresIn: jwtRefreshExpiresIn,
     } as Parameters<typeof this.jwtService.sign>[1]);
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, user };
   }
 
   private async blacklistToken(token: string, expiresIn: number): Promise<void> {

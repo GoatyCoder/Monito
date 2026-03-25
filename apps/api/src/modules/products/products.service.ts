@@ -63,12 +63,14 @@ export class ProductsService {
       ];
     }
 
+    const orderBy = this.parseSort(filters.sort);
+
     const [products, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
         skip,
         take,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       }),
       this.prisma.product.count({ where }),
     ]);
@@ -82,6 +84,25 @@ export class ProductsService {
         totalPages: Math.ceil(total / (paginationDto.limit ?? 20)),
       },
     };
+  }
+
+  private parseSort(sort?: string): Prisma.ProductOrderByWithRelationInput | undefined {
+    if (!sort) return { createdAt: 'desc' };
+
+    const parts = sort.split('_');
+    if (parts.length !== 2) return { createdAt: 'desc' };
+
+    const field = parts[0];
+    const direction = parts[1] === 'desc' ? 'desc' : 'asc';
+
+    const allowedFields: Record<string, Prisma.ProductOrderByWithRelationInput> = {
+      code: { code: direction },
+      name: { name: direction },
+      createdAt: { createdAt: direction },
+      updatedAt: { updatedAt: direction },
+    };
+
+    return allowedFields[field] || { createdAt: 'desc' };
   }
 
   async findById(id: string, includeDeleted = false): Promise<ProductWithVarietiesResponseDto> {

@@ -10,6 +10,11 @@ export class QueryFiltersDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  sort?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsDateString()
   dateFrom?: string;
 

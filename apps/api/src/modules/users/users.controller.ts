@@ -17,6 +17,10 @@ import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { RolesGuard, Roles } from '../auth/guards';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Role } from '../../../generated/prisma/client';
 
 @ApiTags('users')
@@ -42,6 +46,14 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async findAll(@Query() dto: PaginationDto): Promise<PaginatedResponse<UserResponseDto>> {
     return this.usersService.findAll(dto);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current user' })
+  @ApiResponse({ status: 200, description: 'Current user details', type: UserResponseDto })
+  async getMe(@CurrentUser() user: JwtPayload): Promise<UserResponseDto> {
+    return this.usersService.findById(user.sub);
   }
 
   @Get(':id')

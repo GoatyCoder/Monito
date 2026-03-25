@@ -71,6 +71,10 @@ describe('AuthService', () => {
             }),
           },
         },
+        {
+          provide: 'REDIS_CLIENT',
+          useValue: null,
+        },
       ],
     }).compile();
 

@@ -4,6 +4,7 @@ import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PassportModule } from '@nestjs/passport';
 import { appConfig, jwtConfig, redisConfig, bcryptConfig } from './config';
+import { RedisModule } from './config/redis.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -36,6 +37,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
       inject: [ConfigService],
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    RedisModule,
     PrismaModule,
     AuditModule,
     AuthModule,

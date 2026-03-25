@@ -1,8 +1,9 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
+import Redis from 'ioredis';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -13,12 +14,12 @@ const REFRESH_TOKEN_BLACKLIST_PREFIX = 'refresh:blacklist:';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private redisClient: import('ioredis').Redis | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Inject('REDIS_CLIENT') private readonly redis: Redis | null,
   ) {}
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
@@ -101,36 +102,20 @@ export class AuthService {
   }
 
   private async blacklistToken(token: string, expiresIn: number): Promise<void> {
-    const redis = this.getRedisClient();
+    if (!this.redis) {
+      this.logger.warn('Redis not available, token blacklist disabled');
+      return;
+    }
     const ttl = Math.max(expiresIn - Math.floor(Date.now() / 1000), 0);
-    if (ttl > 0 && redis) {
-      await redis.set(`${REFRESH_TOKEN_BLACKLIST_PREFIX}${this.hashToken(token)}`, '1', 'EX', ttl);
+    if (ttl > 0) {
+      await this.redis.set(`${REFRESH_TOKEN_BLACKLIST_PREFIX}${this.hashToken(token)}`, '1', 'EX', ttl);
     }
   }
 
   private async isTokenBlacklisted(token: string): Promise<boolean> {
-    const redis = this.getRedisClient();
-    if (!redis) return false;
-    const result = await redis.get(`${REFRESH_TOKEN_BLACKLIST_PREFIX}${this.hashToken(token)}`);
+    if (!this.redis) return false;
+    const result = await this.redis.get(`${REFRESH_TOKEN_BLACKLIST_PREFIX}${this.hashToken(token)}`);
     return result !== null;
-  }
-
-  private getRedisClient(): import('ioredis').Redis | null {
-    if (this.redisClient) return this.redisClient;
-    
-    try {
-      const Redis = require('ioredis');
-      this.redisClient = new Redis({
-        host: this.configService.get<string>('redis.host') ?? 'localhost',
-        port: this.configService.get<number>('redis.port') ?? 6379,
-        password: this.configService.get<string>('redis.password') || undefined,
-        lazyConnect: true,
-      });
-      return this.redisClient;
-    } catch {
-      this.logger.warn('Redis not available, token blacklist disabled');
-      return null;
-    }
   }
 
   private hashToken(token: string): string {

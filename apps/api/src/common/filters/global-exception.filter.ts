@@ -38,9 +38,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       } else if (typeof exceptionResponse === 'object') {
         const resp = exceptionResponse as Record<string, unknown>;
         message = (resp.message as string | string[]) ?? message;
-        error = (resp.error as string) ?? exception.name;
+        error = (resp.error as string) ?? this.getErrorName(status);
+      } else {
+        error = this.getErrorName(status);
       }
-      error = exception.name;
     } else if (exception instanceof Error) {
       message = exception.message;
       this.logger.error(`Unhandled exception: ${exception.message}`, exception.stack);
@@ -55,5 +56,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     };
 
     response.status(status).json(errorResponse);
+  }
+
+  private getErrorName(status: number): string {
+    const errorNames: Record<number, string> = {
+      400: 'Bad Request',
+      401: 'Unauthorized',
+      403: 'Forbidden',
+      404: 'Not Found',
+      409: 'Conflict',
+      422: 'Unprocessable Entity',
+      429: 'Too Many Requests',
+      500: 'Internal Server Error',
+    };
+    return errorNames[status] ?? 'Error';
   }
 }

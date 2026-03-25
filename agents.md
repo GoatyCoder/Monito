@@ -87,8 +87,8 @@ src/
 ### 3. Prisma
 - **Non usare `prisma.$queryRaw`** salvo query estremamente complesse, e solo con parametri escaped
 - Usa sempre le typed relations — non fare join manuali
-- Le migration vanno create con `pnpm prisma migrate dev --name <nome-descrittivo>`
-- Lo schema si trova in `prisma/schema.prisma`
+- Le migration vanno create con `pnpm --filter @monito/api prisma migrate dev --name <nome-descrittivo>`
+- Lo schema si trova in `apps/api/prisma/schema.prisma`
 - Ogni modifica allo schema deve essere accompagnata dalla relativa migration
 - Usa `prisma.$transaction` per operazioni multi-step
 
@@ -96,6 +96,8 @@ src/
 - Segui le convenzioni REST: risorse al plurale, verbi HTTP corretti
 - Ogni endpoint deve avere i decoratori `@ApiOperation`, `@ApiResponse` di Swagger
 - Usa sempre i DTO con class-validator per input e output
+- Aggiungi `@ApiBearerAuth()` a tutti i controller protetti (quelli che richiedono autenticazione)
+- Gli endpoint pubblici usano il decorator `@Public()` per ignorare il JwtAuthGuard
 - Restituisci sempre un formato di risposta coerente:
   ```json
   // Successo lista
@@ -155,20 +157,20 @@ src/
 
 ```bash
 # Avvio dev
-pnpm run start:dev
+pnpm --filter @monito/api run dev
 
 # Prisma
-pnpm prisma migrate dev --name <nome>
-pnpm prisma generate
-pnpm prisma studio
+pnpm --filter @monito/api prisma migrate dev --name <nome>
+pnpm --filter @monito/api prisma generate
+pnpm --filter @monito/api prisma studio
 
 # Test
-pnpm test
-pnpm test:e2e
-pnpm test:cov
+pnpm --filter @monito/api test
+pnpm --filter @monito/api test:e2e
+pnpm --filter @monito/api test:cov
 
 # Build
-pnpm build
+pnpm --filter @monito/api build
 
 # Docker
 docker-compose up -d

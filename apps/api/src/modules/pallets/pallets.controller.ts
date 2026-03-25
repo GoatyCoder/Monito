@@ -11,7 +11,7 @@ import {
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { PalletsService } from './pallets.service';
 import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto } from './dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -20,6 +20,7 @@ import { PaginatedResponse } from '../../common/interceptors/transform.intercept
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
+@ApiBearerAuth()
 @ApiTags('pallets')
 @Controller('pallets')
 export class PalletsController {

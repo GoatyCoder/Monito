@@ -156,11 +156,22 @@ Le rotte pubbliche usano il decorator `@Public()`:
 login(@Body() dto: LoginDto) { ... }
 ```
 
+### Swagger
+Aggiungi `@ApiBearerAuth()` a tutti i controller protetti per integrare correttamente la security in Swagger:
+```ts
+@ApiBearerAuth()
+@ApiTags('users')
+@Controller('users')
+export class UsersController { ... }
+```
+
+Gli endpoint pubblici (es. login, refresh) NON devono avere `@ApiBearerAuth()` e devono avere il decorator `@Public()`.
+
 ### Struttura del payload JWT
 ```ts
 interface JwtPayload {
   sub: string;    // userId
-  email: string;
+  username: string;
   role: Role;
   iat: number;
   exp: number;
@@ -185,14 +196,26 @@ Ogni endpoint deve avere DTO separati per input e output.
 ```ts
 // create-user.dto.ts
 export class CreateUserDto {
-  @ApiProperty({ example: 'mario@example.com' })
-  @IsEmail()
-  email: string;
-
-  @ApiProperty({ minLength: 8 })
+  @ApiProperty({ example: 'mrossi' })
   @IsString()
-  @MinLength(8)
+  @MaxLength(32)
+  @Matches(/^[A-Za-z0-9]+$/)
+  username: string;
+
+  @ApiProperty({ minLength: 6 })
+  @IsString()
+  @MinLength(6)
   password: string;
+
+  @ApiProperty({ example: 'Mario' })
+  @IsString()
+  @MaxLength(50)
+  firstName: string;
+
+  @ApiProperty({ example: 'Rossi' })
+  @IsString()
+  @MaxLength(50)
+  surname: string;
 }
 
 // user-response.dto.ts — mai restituire la password!
@@ -201,7 +224,13 @@ export class UserResponseDto {
   id: string;
 
   @ApiProperty()
-  email: string;
+  username: string;
+
+  @ApiProperty()
+  firstName: string;
+
+  @ApiProperty()
+  surname: string;
 
   @ApiProperty({ enum: Role })
   role: Role;

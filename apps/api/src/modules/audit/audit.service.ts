@@ -1,20 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaClient } from '../../../generated/prisma/client';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 import { AuditLogResponseDto } from './dto/audit-log-response.dto';
 
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
-  private readonly prisma: PrismaClient;
 
-  constructor() {
-    const adapter = new PrismaLibSql({
-      url: process.env.DATABASE_URL ?? 'file:./prisma/dev.db',
-    });
-    this.prisma = new PrismaClient({ adapter });
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async log(dto: CreateAuditLogDto): Promise<AuditLogResponseDto> {
     try {

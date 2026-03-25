@@ -128,6 +128,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 }
 ```
 
+### Redis - non usare require()
+Iniettare Redis come provider nel modulo, non istanziarlo manualmente:
+
+```ts
+// ❌ ERRATO - require dinamico
+private getRedisClient() {
+  const Redis = require('ioredis');
+  this.redisClient = new Redis({ ... });
+}
+
+// ✅ CORRETTO - iniettato via DI
+@Inject('REDIS_CLIENT') private readonly redis: Redis
+```
+
 ### IDs: CUID vs UUID
 Prisma usa CUID (`@default(cuid())`), non UUID.
 

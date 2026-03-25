@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFieldLotDto, UpdateFieldLotDto, FieldLotResponseDto, FieldLotWithDetailsResponseDto } from './dto';
 import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
@@ -26,6 +26,14 @@ export class FieldLotsService {
 
     if (!variety) {
       throw new NotFoundException(`Variety with ID ${dto.varietyId} not found`);
+    }
+
+    const existing = await this.prisma.fieldLot.findUnique({
+      where: { lotCode: dto.lotCode },
+    });
+
+    if (existing) {
+      throw new ConflictException('FieldLot with this lotCode already exists');
     }
 
     const fieldLot = await this.prisma.fieldLot.create({
@@ -138,6 +146,15 @@ export class FieldLotsService {
 
     if (!fieldLot) {
       throw new NotFoundException(`FieldLot with ID ${id} not found`);
+    }
+
+    if (dto.lotCode && dto.lotCode !== fieldLot.lotCode) {
+      const existing = await this.prisma.fieldLot.findUnique({
+        where: { lotCode: dto.lotCode },
+      });
+      if (existing) {
+        throw new ConflictException('FieldLot with this lotCode already exists');
+      }
     }
 
     const oldValue = this.toResponse(fieldLot);

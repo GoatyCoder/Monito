@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProcessedProductDto, UpdateProcessedProductDto, ProcessedProductResponseDto } from './dto';
 import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
@@ -20,6 +20,14 @@ export class ProcessedProductsService {
   ) {}
 
   async create(dto: CreateProcessedProductDto, userId?: string): Promise<ProcessedProductResponseDto> {
+    const existing = await this.prisma.processedProduct.findUnique({
+      where: { code: dto.code },
+    });
+
+    if (existing) {
+      throw new ConflictException('ProcessedProduct with this code already exists');
+    }
+
     const product = await this.prisma.processedProduct.create({
       data: dto,
     });
@@ -96,6 +104,15 @@ export class ProcessedProductsService {
 
     if (!product) {
       throw new NotFoundException(`Processed product with ID ${id} not found`);
+    }
+
+    if (dto.code && dto.code !== product.code) {
+      const existing = await this.prisma.processedProduct.findUnique({
+        where: { code: dto.code },
+      });
+      if (existing) {
+        throw new ConflictException('ProcessedProduct with this code already exists');
+      }
     }
 
     const oldValue = this.toResponse(product);

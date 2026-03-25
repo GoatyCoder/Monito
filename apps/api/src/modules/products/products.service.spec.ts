@@ -89,7 +89,7 @@ describe('ProductsService', () => {
       prisma.product.findMany.mockResolvedValue([mockProduct]);
       prisma.product.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ page: 1, limit: 20 }, { includeDeleted: false });
+      const result = await service.findAll({ page: 1, limit: 20, includeDeleted: false });
 
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);

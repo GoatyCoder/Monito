@@ -40,11 +40,7 @@ async function bootstrap() {
       .setTitle('Monito API')
       .setDescription('Internal traceability application for agricultural products')
       .setVersion('1.0')
-      .addSecurity('bearerAuth', {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-      })
+      .addBearerAuth()
       .addTag('auth', 'Authentication endpoints')
       .addTag('users', 'User management')
       .addTag('products', 'Agricultural products')

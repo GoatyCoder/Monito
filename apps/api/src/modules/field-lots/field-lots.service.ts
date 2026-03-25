@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFieldLotDto, UpdateFieldLotDto, FieldLotResponseDto, FieldLotWithDetailsResponseDto } from './dto';
-import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { getPaginationParams } from '../../common/dto/pagination.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
@@ -58,28 +58,27 @@ export class FieldLotsService {
   }
 
   async findAll(
-    paginationDto: PaginationDto,
-    filters: QueryFiltersDto,
+    dto: ListQueryDto,
   ): Promise<PaginatedResponse<FieldLotResponseDto>> {
-    const { skip, take } = getPaginationParams(paginationDto);
+    const { skip, take } = getPaginationParams(dto);
     const where: Prisma.FieldLotWhereInput = {};
 
-    if (!filters.includeDeleted) {
+    if (!dto.includeDeleted) {
       where.deletedAt = null;
     }
 
-    if (filters.varietyId) {
-      where.varietyId = filters.varietyId;
+    if (dto.varietyId) {
+      where.varietyId = dto.varietyId;
     }
 
-    if (filters.productId) {
-      where.variety = { productId: filters.productId };
+    if (dto.productId) {
+      where.variety = { productId: dto.productId };
     }
 
-    if (filters.search) {
+    if (dto.search) {
       where.OR = [
-        { lotCode: { contains: filters.search } },
-        { supplier: { contains: filters.search } },
+        { lotCode: { contains: dto.search } },
+        { supplier: { contains: dto.search } },
       ];
     }
 
@@ -98,9 +97,9 @@ export class FieldLotsService {
       data: fieldLots.map((f) => this.toResponse(f)),
       meta: {
         total,
-        page: paginationDto.page ?? 1,
-        limit: paginationDto.limit ?? 20,
-        totalPages: Math.ceil(total / (paginationDto.limit ?? 20)),
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
       },
     };
   }

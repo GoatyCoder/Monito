@@ -10,20 +10,20 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ProcessedProductsService } from './processed-products.service';
 import {
   CreateProcessedProductDto,
   UpdateProcessedProductDto,
   ProcessedProductResponseDto,
 } from './dto';
-import { PaginationDto } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('processed-products')
+@ApiBearerAuth()
 @Controller('processed-products')
 export class ProcessedProductsController {
   constructor(
@@ -44,10 +44,9 @@ export class ProcessedProductsController {
   @ApiOperation({ summary: 'Get all processed products' })
   @ApiResponse({ status: 200, description: 'List of processed products' })
   findAll(
-    @Query() pagination: PaginationDto,
-    @Query() filters: QueryFiltersDto,
+    @Query() dto: ListQueryDto,
   ): Promise<PaginatedResponse<ProcessedProductResponseDto>> {
-    return this.processedProductsService.findAll(pagination, filters);
+    return this.processedProductsService.findAll(dto);
   }
 
   @Get(':id')

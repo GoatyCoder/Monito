@@ -1,9 +1,10 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
 
 @ApiTags('audit')
+@ApiBearerAuth()
 @Controller('audit')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}

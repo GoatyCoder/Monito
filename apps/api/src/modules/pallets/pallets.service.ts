@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto, PalletItemResponseDto } from './dto';
-import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { getPaginationParams } from '../../common/dto/pagination.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
@@ -102,32 +102,31 @@ export class PalletsService {
   }
 
   async findAll(
-    paginationDto: PaginationDto,
-    filters: QueryFiltersDto,
+    dto: ListQueryDto,
   ): Promise<PaginatedResponse<PalletResponseDto>> {
-    const { skip, take } = getPaginationParams(paginationDto);
+    const { skip, take } = getPaginationParams(dto);
     const where: Prisma.PalletWhereInput = {};
 
-    if (!filters.includeDeleted) {
+    if (!dto.includeDeleted) {
       where.deletedAt = null;
     }
 
-    if (filters.search) {
-      where.palletNumber = { contains: filters.search };
+    if (dto.search) {
+      where.palletNumber = { contains: dto.search };
     }
 
-    if (filters.dateFrom || filters.dateTo) {
+    if (dto.dateFrom || dto.dateTo) {
       where.createdAt = {};
-      if (filters.dateFrom) {
-        where.createdAt.gte = new Date(filters.dateFrom);
+      if (dto.dateFrom) {
+        where.createdAt.gte = new Date(dto.dateFrom);
       }
-      if (filters.dateTo) {
-        where.createdAt.lte = new Date(filters.dateTo);
+      if (dto.dateTo) {
+        where.createdAt.lte = new Date(dto.dateTo);
       }
     }
 
-    if (filters.createdBy) {
-      where.createdBy = filters.createdBy;
+    if (dto.createdBy) {
+      where.createdBy = dto.createdBy;
     }
 
     const [pallets, total] = await this.prisma.$transaction([
@@ -147,9 +146,9 @@ export class PalletsService {
       data: pallets.map((p) => this.toResponseWithItems(p)),
       meta: {
         total,
-        page: paginationDto.page ?? 1,
-        limit: paginationDto.limit ?? 20,
-        totalPages: Math.ceil(total / (paginationDto.limit ?? 20)),
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
       },
     };
   }

@@ -10,16 +10,16 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { VarietiesService } from './varieties.service';
 import { CreateVarietyDto, UpdateVarietyDto, VarietyResponseDto } from './dto';
-import { PaginationDto } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('varieties')
+@ApiBearerAuth()
 @Controller('varieties')
 export class VarietiesController {
   constructor(private readonly varietiesService: VarietiesService) {}
@@ -40,10 +40,9 @@ export class VarietiesController {
   @ApiOperation({ summary: 'Get all varieties' })
   @ApiResponse({ status: 200, description: 'List of varieties' })
   async findAll(
-    @Query() pagination: PaginationDto,
-    @Query() filters: QueryFiltersDto,
+    @Query() dto: ListQueryDto,
   ): Promise<PaginatedResponse<VarietyResponseDto>> {
-    return this.varietiesService.findAll(pagination, filters);
+    return this.varietiesService.findAll(dto);
   }
 
   @Get(':id')

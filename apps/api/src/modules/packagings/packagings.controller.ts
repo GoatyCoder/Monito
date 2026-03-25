@@ -10,16 +10,16 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { PackagingsService } from './packagings.service';
 import { CreatePackagingDto, UpdatePackagingDto, PackagingResponseDto } from './dto';
-import { PaginationDto } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('packagings')
+@ApiBearerAuth()
 @Controller('packagings')
 export class PackagingsController {
   constructor(private readonly packagingsService: PackagingsService) {}
@@ -39,10 +39,9 @@ export class PackagingsController {
   @ApiOperation({ summary: 'Get all packagings' })
   @ApiResponse({ status: 200, description: 'List of packagings' })
   async findAll(
-    @Query() pagination: PaginationDto,
-    @Query() filters: QueryFiltersDto,
+    @Query() dto: ListQueryDto,
   ): Promise<PaginatedResponse<PackagingResponseDto>> {
-    return this.packagingsService.findAll(pagination, filters);
+    return this.packagingsService.findAll(dto);
   }
 
   @Get(':id')

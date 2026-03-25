@@ -10,16 +10,16 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { PalletsService } from './pallets.service';
 import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto } from './dto';
-import { PaginationDto } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('pallets')
+@ApiBearerAuth()
 @Controller('pallets')
 export class PalletsController {
   constructor(private readonly palletsService: PalletsService) {}
@@ -40,10 +40,9 @@ export class PalletsController {
   @ApiOperation({ summary: 'Get all pallets' })
   @ApiResponse({ status: 200, description: 'List of pallets' })
   async findAll(
-    @Query() pagination: PaginationDto,
-    @Query() filters: QueryFiltersDto,
+    @Query() dto: ListQueryDto,
   ): Promise<PaginatedResponse<PalletResponseDto>> {
-    return this.palletsService.findAll(pagination, filters);
+    return this.palletsService.findAll(dto);
   }
 
   @Get('by-number/:palletNumber')

@@ -128,6 +128,42 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 }
 ```
 
+### IDs: CUID vs UUID
+Prisma usa CUID (`@default(cuid())`), non UUID.
+
+```typescript
+// ✅ CORRETTO - usa @Param('id') senza pipe
+@Get(':id')
+findById(@Param('id') id: string) {}
+
+// ❌ ERRATO - ParseUUIDPipe fallisce sempre con CUID
+@Get(':id')
+findById(@Param('id', ParseUUIDPipe) id: string) {}
+```
+
+```typescript
+// ✅ CORRETTO - usa @IsString() per foreign keys
+@IsString()
+productId: string;
+
+// ❌ ERRATO - @IsUUID() fallisce sempre con CUID
+@IsUUID()
+productId: string;
+```
+
+### PrismaService via DI
+
+```typescript
+// ✅ CORRETTO - inietta via DI
+constructor(private readonly prisma: PrismaService) {}
+
+// ❌ ERRATO - crea nuova connessione al DB
+constructor() {
+  const adapter = new PrismaLibSql({ url: ... });
+  this.prisma = new PrismaClient({ adapter });
+}
+```
+
 ### Transazioni
 ```ts
 // Per operazioni multi-step usa sempre $transaction
@@ -159,8 +195,8 @@ login(@Body() dto: LoginDto) { ... }
 ### Struttura del payload JWT
 ```ts
 interface JwtPayload {
-  sub: string;    // userId
-  email: string;
+  sub: string;     // userId
+  username: string; // username dell'utente
   role: Role;
   iat: number;
   exp: number;
@@ -406,3 +442,6 @@ SQLite non necessita di un container — il file `.db` è in `prisma/`.
 - [ ] `.env.example` aggiornato se sono state aggiunte variabili
 - [ ] Nessun segreto hardcodato
 - [ ] Cache invalidata nelle operazioni di scrittura
+- [ ] Nessun `ParseUUIDPipe` per campi CUID
+- [ ] Nessun `@IsUUID()` nei DTOs per foreign keys
+- [ ] Nessun `new PrismaClient()` nei service (usa `PrismaService`)

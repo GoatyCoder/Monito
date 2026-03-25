@@ -188,3 +188,6 @@ docker-compose down
 - ❌ Usare `npm` o `yarn` invece di `pnpm`
 - ❌ Scrivere SQL raw senza sanitizzazione
 - ❌ Rimuovere validazioni "per velocità"
+- ❌ Usare `ParseUUIDPipe` per campi CUID (Prisma usa CUID, non UUID)
+- ❌ Usare `@IsUUID()` nei DTOs per foreign keys — usare `@IsString()`
+- ❌ Creare `new PrismaClient()` nei service — usare Dependency Injection con `PrismaService`

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Exclude } from 'class-transformer';
 import { Role } from '../../../../generated/prisma/client';
 
 export class UserResponseDto {
@@ -21,5 +22,6 @@ export class UserResponseDto {
   createdAt: Date;
 
   @ApiPropertyOptional()
+  @Exclude()
   updatedAt?: Date;
 }

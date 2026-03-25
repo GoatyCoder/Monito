@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PassportModule } from '@nestjs/passport';
+import Joi from 'joi';
 import { appConfig, jwtConfig, redisConfig, bcryptConfig } from './config';
 import { RedisModule } from './config/redis.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -18,6 +19,7 @@ import { PalletsModule } from './modules/pallets/pallets.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { JwtStrategy } from './modules/auth/strategies/jwt.strategy';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 @Module({
@@ -25,6 +27,25 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig, jwtConfig, redisConfig, bcryptConfig],
+      validationSchema: Joi.object({
+        NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+        PORT: Joi.number().default(3000),
+        API_PREFIX: Joi.string().default('api/v1'),
+        CORS_ORIGINS: Joi.string(),
+        DATABASE_URL: Joi.string().required(),
+        JWT_SECRET: Joi.string().min(32).required(),
+        JWT_EXPIRES_IN: Joi.string().default('15m'),
+        JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+        JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+        REDIS_HOST: Joi.string().default('localhost'),
+        REDIS_PORT: Joi.number().default(6379),
+        REDIS_PASSWORD: Joi.string().allow(''),
+        BCRYPT_SALT_ROUNDS: Joi.number().min(10).max(20).default(12),
+      }),
+      validationOptions: {
+        allowUnknown: false,
+        abortEarly: true,
+      },
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
@@ -58,6 +79,10 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: PrismaExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,

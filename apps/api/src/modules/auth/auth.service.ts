@@ -88,15 +88,18 @@ export class AuthService {
       role,
     };
 
+    const jwtExpiresIn = this.configService.get<string>('jwt.expiresIn') || '15m';
+    const jwtRefreshExpiresIn = this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
+
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('jwt.secret'),
-      expiresIn: '15m',
-    });
+      expiresIn: jwtExpiresIn,
+    } as Parameters<typeof this.jwtService.sign>[1]);
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('jwt.refreshSecret'),
-      expiresIn: '7d',
-    });
+      expiresIn: jwtRefreshExpiresIn,
+    } as Parameters<typeof this.jwtService.sign>[1]);
 
     return { accessToken, refreshToken };
   }

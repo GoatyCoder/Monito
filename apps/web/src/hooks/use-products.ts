@@ -7,19 +7,21 @@ export interface ProductFilters {
   limit?: number;
   search?: string;
   sort?: string;
+  includeDeleted?: boolean;
 }
 
 export function useProducts(filters: ProductFilters = {}) {
-  const { page = 1, limit = 20, search = '', sort = '' } = filters;
+  const { page = 1, limit = 20, search = '', sort = '', includeDeleted = false } = filters;
   
   return useQuery({
-    queryKey: ['products', { page, limit, search, sort }],
+    queryKey: ['products', { page, limit, search, sort, includeDeleted }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', String(limit));
       if (search) params.append('search', search);
       if (sort) params.append('sort', sort);
+      if (includeDeleted) params.append('includeDeleted', 'true');
       
       const response = await api.get<{ data: Product[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(`/products?${params.toString()}`);
       return response.data;
@@ -69,7 +71,24 @@ export function useDeleteProduct() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/products/${id}`);
+      const response = await api.delete(`/products/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (error) => {
+      console.error('Delete error:', error);
+    },
+  });
+}
+
+export function useRestoreProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.post<{ data: Product }>(`/products/${id}/restore`);
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });

@@ -2,8 +2,8 @@ import { useState, useCallback, useId } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, ProductFilters } from '@/hooks/use-products';
+import { Plus, Pencil, Trash2, RotateCcw } from 'lucide-react';
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestoreProduct, ProductFilters } from '@/hooks/use-products';
 import { showSuccess, showError } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,12 +42,14 @@ export function ProductsPage() {
     limit: 20,
     search: '',
     sort: '',
+    includeDeleted: false,
   });
 
   const { data, isLoading } = useProducts(filters);
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
+  const restoreProduct = useRestoreProduct();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -78,6 +80,19 @@ export function ProductsPage() {
       return { ...prev, sort: `${column}_${direction}`, page: 1 };
     });
   }, []);
+
+  const handleToggleIncludeDeleted = useCallback(() => {
+    setFilters((prev) => ({ ...prev, includeDeleted: !prev.includeDeleted, page: 1 }));
+  }, []);
+
+  const handleRestore = async (id: string) => {
+    try {
+      await restoreProduct.mutateAsync(id);
+      showSuccess('Prodotto ripristinato con successo');
+    } catch {
+      showError('Errore durante il ripristino');
+    }
+  };
 
   const handleOpenDialog = (product?: Product) => {
     if (product) {
@@ -139,6 +154,15 @@ export function ProductsPage() {
           onChange={handleSearchChange}
           placeholder="Cerca prodotti..."
         />
+        <label className="flex items-center gap-2 text-sm text-foreground-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={filters.includeDeleted || false}
+            onChange={handleToggleIncludeDeleted}
+            className="rounded border-gray-300"
+          />
+          Mostra eliminati
+        </label>
       </div>
 
       <div className="border rounded-md" role="region" aria-label="Tabella prodotti">
@@ -196,7 +220,7 @@ export function ProductsPage() {
               </TableRow>
             ) : (
               data?.data.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.id} className={product.deletedAt ? 'bg-red-50 dark:bg-red-900/20' : ''}>
                   <TableCell className="font-medium">{product.code}</TableCell>
                   <TableCell>{product.name}</TableCell>
                   <TableCell className="text-foreground-muted">
@@ -204,22 +228,36 @@ export function ProductsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenDialog(product)}
-                        aria-label={`Modifica prodotto ${product.name}`}
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeletingProduct(product)}
-                        aria-label={`Elimina prodotto ${product.name}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" aria-hidden="true" />
-                      </Button>
+                      {product.deletedAt ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRestore(product.id)}
+                          aria-label={`Ripristina prodotto ${product.name}`}
+                          disabled={restoreProduct.isPending}
+                        >
+                          <RotateCcw className="h-4 w-4 text-green-600" aria-hidden="true" />
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenDialog(product)}
+                            aria-label={`Modifica prodotto ${product.name}`}
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeletingProduct(product)}
+                            aria-label={`Elimina prodotto ${product.name}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" aria-hidden="true" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -304,8 +342,8 @@ export function ProductsPage() {
           <DialogHeader>
             <DialogTitle>Elimina Prodotto</DialogTitle>
             <DialogDescription id="delete-description">
-              Sei sicuro di voler eliminare il prodotto &quot;{deletingProduct?.name}&quot;? Questa azione
-              non può essere annullata.
+              Sei sicuro di voler eliminare il prodotto &quot;{deletingProduct?.name}&quot;? Potrai
+              ripristinarlo dalla lista degli eliminati.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

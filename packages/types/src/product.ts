@@ -27,6 +27,7 @@ export interface ProductResponseDto {
   description?: string;
   createdAt: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface ProductListParams {

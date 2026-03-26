@@ -19,11 +19,13 @@ cd apps/api
 pnpm run dev              # Dev server (watch mode)
 pnpm run build            # Build production
 pnpm run test             # Tutti i test
+pnpm run test:e2e         # E2E suite
 pnpm run test -- src/modules/users/users.service.spec.ts  # File singolo
 pnpm run test -- --testNamePattern="UsersService.create" # Per nome
 pnpm run test:watch       # Watch mode
 pnpm run test:cov         # Con coverage
 pnpm run lint             # Lint + fix automatico
+pnpm run check:all        # Quality gate completo
 ```
 
 ### Frontend
@@ -74,11 +76,23 @@ pnpm run lint             # Lint + fix
 ## Backend (NestJS)
 
 ### Regole
-- API REST: risorse plurali, formato `{ data, meta }`
+- API REST: risorse plurali, formato `{ data }` (dettaglio) e `{ data, meta }` (liste)
 - Prisma: typed queries, no `$queryRaw`
 - Auth: `JwtAuthGuard` globale, `@Public()` per pubbliche
 - CUID per IDs, non UUID
 - Verifica duplicati prima di creare
+- Soft delete come default, restore e purge espliciti
+- Endpoints active/trash separati (no `includeDeleted`)
+- Purge con reason obbligatoria e blocco su referenze attive
+- Ruoli: `ADMIN` write, `OPERATOR` read-only sui moduli operativi
+
+### Operability
+- Health probes pubbliche:
+  - `GET /api/v1/health/liveness`
+  - `GET /api/v1/health/readiness`
+- Header `x-request-id` su ogni request
+- Logging strutturato HTTP con requestId
+- Shutdown hooks abilitati
 
 ### Struttura
 ```
@@ -140,6 +154,9 @@ apps/web/src/
 - [ ] TypeScript compila
 - [ ] Test passano
 - [ ] Nessun console.log
+- [ ] `pnpm run check:all` verde
+- [ ] Migrazione Prisma inclusa se cambia lo schema
+- [ ] Contratti API allineati (active/trash + restore/purge)
 
 ### Frontend  
 - [ ] TypeScript compila (`pnpm run typecheck`)

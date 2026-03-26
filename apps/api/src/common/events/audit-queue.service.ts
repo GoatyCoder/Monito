@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { AuditService } from '../../modules/audit/audit.service';
 import { CreateAuditLogDto, AuditOperation } from '../../modules/audit/dto/create-audit-log.dto';
 
@@ -13,16 +13,29 @@ export interface AuditEvent {
   userAgent?: string;
 }
 
+const PROCESS_INTERVAL_MS = 1000;
+const MAX_EVENTS_PER_CYCLE = 50;
+
 @Injectable()
-export class AuditQueueService implements OnModuleInit {
+export class AuditQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditQueueService.name);
   private queue: AuditEvent[] = [];
   private isProcessing = false;
+  private timer: NodeJS.Timeout | null = null;
 
   constructor(private readonly auditService: AuditService) {}
 
   onModuleInit() {
     this.startProcessor();
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+
+    await this.drainQueueOnShutdown();
   }
 
   push(event: AuditEvent): void {
@@ -31,9 +44,9 @@ export class AuditQueueService implements OnModuleInit {
   }
 
   private startProcessor(): void {
-    setInterval(() => {
+    this.timer = setInterval(() => {
       void this.processQueue();
-    }, 1000);
+    }, PROCESS_INTERVAL_MS);
   }
 
   private async processQueue(): Promise<void> {
@@ -43,7 +56,9 @@ export class AuditQueueService implements OnModuleInit {
 
     this.isProcessing = true;
 
-    while (this.queue.length > 0) {
+    let processedInCycle = 0;
+
+    while (this.queue.length > 0 && processedInCycle < MAX_EVENTS_PER_CYCLE) {
       const event = this.queue.shift();
       if (!event) continue;
 
@@ -60,6 +75,7 @@ export class AuditQueueService implements OnModuleInit {
         };
 
         await this.auditService.log(dto);
+        processedInCycle += 1;
       } catch (error) {
         this.logger.error(`Failed to process audit event: ${error}`);
         this.queue.unshift(event);
@@ -68,5 +84,23 @@ export class AuditQueueService implements OnModuleInit {
     }
 
     this.isProcessing = false;
+  }
+
+  private async drainQueueOnShutdown(): Promise<void> {
+    const startedAt = Date.now();
+    const maxDrainTimeMs = 5000;
+
+    while (this.queue.length > 0 && Date.now() - startedAt < maxDrainTimeMs) {
+      await this.processQueue();
+      if (this.isProcessing) {
+        break;
+      }
+    }
+
+    if (this.queue.length > 0) {
+      this.logger.warn(
+        `Audit queue shutdown with ${this.queue.length} pending events after ${maxDrainTimeMs}ms`,
+      );
+    }
   }
 }

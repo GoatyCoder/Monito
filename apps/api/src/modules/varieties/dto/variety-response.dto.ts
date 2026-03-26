@@ -21,4 +21,7 @@ export class VarietyResponseDto {
 
   @ApiPropertyOptional()
   updatedAt: Date;
+
+  @ApiPropertyOptional()
+  deletedAt: Date | null;
 }

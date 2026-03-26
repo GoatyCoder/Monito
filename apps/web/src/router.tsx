@@ -2,6 +2,7 @@ import { createRouter, createRootRoute, createRoute, Outlet, useNavigate } from 
 import { AppLayout } from '@/components/layout/app-layout';
 import { LoginPage } from '@/pages/login-page';
 import { ProductsPage } from '@/pages/products-page';
+import { AccessibilityPage } from '@/pages/accessibility-page';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { useEffect } from 'react';
 
@@ -266,6 +267,37 @@ const auditRoute = createRoute({
   },
 });
 
+const accessibilityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/accessibility',
+  component: function ProtectedRoute() {
+    const { user, isLoading } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+      if (!isLoading && !user) {
+        navigate({ to: '/login' });
+      }
+    }, [user, isLoading, navigate]);
+
+    if (isLoading || !user) {
+      return (
+        <AppLayout>
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </AppLayout>
+      );
+    }
+
+    return (
+      <AppLayout>
+        <AccessibilityPage />
+      </AppLayout>
+    );
+  },
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   indexRoute,
@@ -275,6 +307,7 @@ const routeTree = rootRoute.addChildren([
   processedProductsRoute,
   fieldLotsRoute,
   auditRoute,
+  accessibilityRoute,
 ]);
 
 export const router = createRouter({ routeTree });

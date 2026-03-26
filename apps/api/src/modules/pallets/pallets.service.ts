@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto, PalletItemResponseDto } from './dto';
 import { getPaginationParams } from '../../common/dto/pagination.dto';
@@ -25,26 +25,29 @@ export class PalletsService {
     }
 
     const fieldLot = await this.prisma.fieldLot.findUnique({
-      where: { id: dto.fieldLotId },
+      where: { id: dto.fieldLotId, deletedAt: null },
     });
 
     if (!fieldLot) {
       throw new NotFoundException(`Field lot with ID ${dto.fieldLotId} not found`);
     }
 
+    const processedProductIds = [...new Set(dto.items.map((i) => i.processedProductId))];
+    const packagingIds = [...new Set(dto.items.map((i) => i.packagingId))];
+
     const processedProducts = await this.prisma.processedProduct.findMany({
-      where: { id: { in: dto.items.map((i) => i.processedProductId) } },
+      where: { id: { in: processedProductIds }, deletedAt: null },
     });
 
-    if (processedProducts.length !== dto.items.length) {
+    if (processedProducts.length !== processedProductIds.length) {
       throw new NotFoundException('One or more processed products not found');
     }
 
     const packagings = await this.prisma.packaging.findMany({
-      where: { id: { in: dto.items.map((i) => i.packagingId) } },
+      where: { id: { in: packagingIds }, deletedAt: null },
     });
 
-    if (packagings.length !== dto.items.length) {
+    if (packagings.length !== packagingIds.length) {
       throw new NotFoundException('One or more packagings not found');
     }
 
@@ -105,11 +108,7 @@ export class PalletsService {
     dto: ListQueryDto,
   ): Promise<PaginatedResponse<PalletResponseDto>> {
     const { skip, take } = getPaginationParams(dto);
-    const where: Prisma.PalletWhereInput = {};
-
-    if (!dto.includeDeleted) {
-      where.deletedAt = null;
-    }
+    const where: Prisma.PalletWhereInput = { deletedAt: null };
 
     if (dto.search) {
       where.palletNumber = { contains: dto.search };
@@ -153,10 +152,59 @@ export class PalletsService {
     };
   }
 
-  async findById(id: string, includeDeleted = false): Promise<PalletWithDetailsResponseDto> {
-    const where: Prisma.PalletWhereUniqueInput = { id };
+  async findDeleted(
+    dto: ListQueryDto,
+  ): Promise<PaginatedResponse<PalletResponseDto>> {
+    const { skip, take } = getPaginationParams(dto);
+    const where: Prisma.PalletWhereInput = {
+      deletedAt: { not: null },
+    };
+
+    if (dto.search) {
+      where.palletNumber = { contains: dto.search };
+    }
+
+    if (dto.dateFrom || dto.dateTo) {
+      where.createdAt = {};
+      if (dto.dateFrom) {
+        where.createdAt.gte = new Date(dto.dateFrom);
+      }
+      if (dto.dateTo) {
+        where.createdAt.lte = new Date(dto.dateTo);
+      }
+    }
+
+    if (dto.createdBy) {
+      where.createdBy = dto.createdBy;
+    }
+
+    const [pallets, total] = await this.prisma.$transaction([
+      this.prisma.pallet.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: true,
+        },
+      }),
+      this.prisma.pallet.count({ where }),
+    ]);
+
+    return {
+      data: pallets.map((p) => this.toResponseWithItems(p)),
+      meta: {
+        total,
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
+      },
+    };
+  }
+
+  async findById(id: string): Promise<PalletWithDetailsResponseDto> {
     const pallet = await this.prisma.pallet.findUnique({
-      where: includeDeleted ? where : { ...where, deletedAt: null },
+      where: { id, deletedAt: null },
       include: {
         fieldLot: {
           include: {
@@ -178,6 +226,35 @@ export class PalletsService {
 
     if (!pallet) {
       throw new NotFoundException(`Pallet with ID ${id} not found`);
+    }
+
+    return this.toResponseWithDetails(pallet);
+  }
+
+  async findDeletedById(id: string): Promise<PalletWithDetailsResponseDto> {
+    const pallet = await this.prisma.pallet.findUnique({
+      where: { id, deletedAt: { not: null } },
+      include: {
+        fieldLot: {
+          include: {
+            variety: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+        items: {
+          include: {
+            processedProduct: true,
+            packaging: true,
+          },
+        },
+      },
+    });
+
+    if (!pallet) {
+      throw new NotFoundException(`Soft-deleted pallet with ID ${id} not found`);
     }
 
     return this.toResponseWithDetails(pallet);
@@ -243,46 +320,35 @@ export class PalletsService {
     return this.toResponseWithItems(updated);
   }
 
-  async delete(id: string, force = false, userId?: string): Promise<void> {
+  async delete(id: string, userId?: string): Promise<void> {
     const pallet = await this.prisma.pallet.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
     });
 
     if (!pallet) {
+      const deletedPallet = await this.prisma.pallet.findUnique({ where: { id } });
+      if (deletedPallet?.deletedAt) {
+        throw new ConflictException(`Pallet with ID ${id} is already deleted`);
+      }
+
       throw new NotFoundException(`Pallet with ID ${id} not found`);
     }
 
-    if (force) {
-      await this.prisma.pallet.delete({
-        where: { id },
-      });
+    const oldValue = this.toResponse(pallet);
+    await this.prisma.pallet.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
-      this.logger.log(`Pallet hard deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.HARD_DELETE,
-        oldValue: this.toResponse(pallet) as unknown as Record<string, unknown>,
-      });
-    } else {
-      const oldValue = this.toResponse(pallet);
-      await this.prisma.pallet.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      });
+    this.logger.log(`Pallet soft deleted: ${id}`);
 
-      this.logger.log(`Pallet soft deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.SOFT_DELETE,
-        oldValue: oldValue as unknown as Record<string, unknown>,
-      });
-    }
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.SOFT_DELETE,
+      oldValue: oldValue as unknown as Record<string, unknown>,
+    });
   }
 
   async restore(id: string, userId?: string): Promise<PalletResponseDto> {
@@ -295,7 +361,7 @@ export class PalletsService {
     }
 
     if (!pallet.deletedAt) {
-      throw new NotFoundException(`Pallet with ID ${id} is not deleted`);
+      throw new ConflictException(`Pallet with ID ${id} is not deleted`);
     }
 
     const updated = await this.prisma.pallet.update({
@@ -316,6 +382,31 @@ export class PalletsService {
     });
 
     return this.toResponseWithItems(updated);
+  }
+
+  async purge(id: string, reason: string, userId?: string): Promise<void> {
+    const pallet = await this.prisma.pallet.findUnique({ where: { id } });
+
+    if (!pallet) {
+      throw new NotFoundException(`Pallet with ID ${id} not found`);
+    }
+
+    if (!pallet.deletedAt) {
+      throw new ConflictException(`Pallet with ID ${id} must be soft-deleted before purge`);
+    }
+
+    await this.prisma.pallet.delete({ where: { id } });
+
+    this.logger.log(`Pallet purged: ${id}`);
+
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.HARD_DELETE,
+      oldValue: this.toResponse(pallet) as unknown as Record<string, unknown>,
+      newValue: { reason },
+    });
   }
 
   private async generatePalletNumber(): Promise<string> {

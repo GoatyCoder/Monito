@@ -1,6 +1,6 @@
-import { IsOptional, IsInt, Min, Max, IsString, IsDateString, IsBoolean } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
 
 export class ListQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
@@ -58,9 +58,4 @@ export class ListQueryDto {
   @IsString()
   createdBy?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  includeDeleted?: boolean;
 }

@@ -1,28 +1,23 @@
-jest.mock('bcrypt', () => ({
-  compare: jest.fn().mockResolvedValue(true),
+jest.mock('bcryptjs', () => ({
+  compare: jest.fn(),
 }));
 
-jest.mock('ioredis', () => {
-  return jest.fn().mockImplementation(() => ({
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue('OK'),
-    lazyConnect: jest.fn(),
-  }));
-});
-
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../../generated/prisma/client';
 
+type MockRedisClient = {
+  get: jest.Mock;
+  set: jest.Mock;
+};
+
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: { user: { findUnique: jest.Mock } };
-  let jwtService: { sign: jest.Mock; verify: jest.Mock };
 
   const mockUser = {
     id: 'user-id-1',
@@ -31,22 +26,39 @@ describe('AuthService', () => {
     firstName: 'Test',
     surname: 'User',
     role: Role.USER,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    avatarColor: 'ORANGE',
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-02T00:00:00.000Z'),
+  };
+
+  const prisma = {
+    user: {
+      findUnique: jest.fn(),
+    },
+  };
+
+  const jwtService = {
+    sign: jest.fn(),
+    verify: jest.fn(),
+  };
+
+  const configService = {
+    get: jest.fn((key: string) => {
+      if (key === 'jwt.secret') return 'test-secret';
+      if (key === 'jwt.refreshSecret') return 'test-refresh-secret';
+      if (key === 'jwt.expiresIn') return '15m';
+      if (key === 'jwt.refreshExpiresIn') return '7d';
+      if (key === 'app.nodeEnv') return 'test';
+      return undefined;
+    }),
+  };
+
+  const redis: MockRedisClient = {
+    get: jest.fn(),
+    set: jest.fn(),
   };
 
   beforeEach(async () => {
-    prisma = {
-      user: {
-        findUnique: jest.fn(),
-      },
-    };
-
-    jwtService = {
-      sign: jest.fn().mockReturnValue('mock-token'),
-      verify: jest.fn().mockReturnValue({ sub: 'user-id-1', username: 'testuser', role: Role.USER, exp: Date.now() + 3600000 }),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -60,79 +72,210 @@ describe('AuthService', () => {
         },
         {
           provide: ConfigService,
-          useValue: {
-            get: jest.fn((key: string) => {
-              if (key === 'jwt.secret') return 'test-secret';
-              if (key === 'jwt.refreshSecret') return 'test-refresh-secret';
-              if (key === 'redis.host') return 'localhost';
-              if (key === 'redis.port') return 6379;
-              if (key === 'redis.password') return undefined;
-              return null;
-            }),
-          },
+          useValue: configService,
         },
         {
           provide: 'REDIS_CLIENT',
-          useValue: null,
+          useValue: redis,
         },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-  });
 
-  afterEach(() => {
     jest.clearAllMocks();
+    jwtService.sign.mockReturnValueOnce('access-token').mockReturnValueOnce('refresh-token');
+    jwtService.verify.mockReturnValue({
+      sub: mockUser.id,
+      username: mockUser.username,
+      role: mockUser.role,
+      iat: 100,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    redis.get.mockResolvedValue(null);
+    redis.set.mockResolvedValue('OK');
+    prisma.user.findUnique.mockResolvedValue(mockUser);
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
   });
 
   describe('login', () => {
-    const loginDto = { username: 'testuser', password: 'password123' };
+    it('returns tokens and user profile for valid credentials', async () => {
+      const result = await service.login({ username: 'testuser', password: 'password123' });
 
-    it('should return access and refresh tokens on successful login', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser);
-      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
-
-      const result = await service.login(loginDto);
-
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { username: 'testuser' } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'testuser' },
+        select: {
+          id: true,
+          username: true,
+          password: true,
+          firstName: true,
+          surname: true,
+          role: true,
+          avatarColor: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      expect(result).toEqual({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        user: {
+          id: mockUser.id,
+          username: mockUser.username,
+          firstName: mockUser.firstName,
+          surname: mockUser.surname,
+          role: mockUser.role,
+          avatarColor: mockUser.avatarColor,
+          createdAt: mockUser.createdAt,
+          updatedAt: mockUser.updatedAt,
+        },
+      });
     });
 
-    it('should throw UnauthorizedException if user not found', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+    it('throws UnauthorizedException when user is missing', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.login({ username: 'missing-user', password: 'password123' }),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException if password is invalid', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+    it('throws UnauthorizedException when password is invalid', async () => {
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.login({ username: 'testuser', password: 'wrong-password' }),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
   describe('refresh', () => {
-    it('should return new tokens on valid refresh token', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser);
-
+    it('rotates refresh token and returns fresh tokens', async () => {
       const result = await service.refresh('valid-refresh-token');
 
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
+      expect(jwtService.verify).toHaveBeenCalledWith('valid-refresh-token', {
+        secret: 'test-refresh-secret',
+      });
+      expect(redis.set).toHaveBeenCalled();
+      expect(result.accessToken).toBe('access-token');
+      expect(result.refreshToken).toBe('refresh-token');
     });
 
-    it('should throw UnauthorizedException on invalid refresh token', async () => {
-      jwtService.verify.mockImplementation(() => { throw new Error('Invalid token'); });
+    it('throws UnauthorizedException when refresh token is revoked', async () => {
+      redis.get.mockResolvedValueOnce('1');
 
-      await expect(service.refresh('invalid-token')).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh('revoked-refresh-token')).rejects.toThrow(
+        new UnauthorizedException('Token has been revoked'),
+      );
+    });
+
+    it('throws UnauthorizedException when refresh token is invalid', async () => {
+      jwtService.verify.mockImplementationOnce(() => {
+        throw new Error('jwt malformed');
+      });
+
+      await expect(service.refresh('bad-refresh-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid refresh token'),
+      );
+    });
+
+    it('throws UnauthorizedException when user from refresh token does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.refresh('refresh-for-deleted-user')).rejects.toThrow(
+        new UnauthorizedException('User not found'),
+      );
     });
   });
 
   describe('logout', () => {
-    it('should not throw on logout', async () => {
-      await expect(service.logout('some-token')).resolves.not.toThrow();
+    it('blacklists refresh token when it is valid', async () => {
+      await service.logout('valid-refresh-token');
+
+      expect(jwtService.verify).toHaveBeenCalledWith('valid-refresh-token', {
+        secret: 'test-refresh-secret',
+      });
+      expect(redis.set).toHaveBeenCalled();
+    });
+
+    it('is idempotent when refresh token is invalid', async () => {
+      jwtService.verify.mockImplementationOnce(() => {
+        throw new Error('jwt malformed');
+      });
+
+      await expect(service.logout('bad-refresh-token')).resolves.not.toThrow();
+      expect(redis.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('redis fallback', () => {
+    it('still refreshes token when redis client is unavailable', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          {
+            provide: PrismaService,
+            useValue: prisma,
+          },
+          {
+            provide: JwtService,
+            useValue: jwtService,
+          },
+          {
+            provide: ConfigService,
+            useValue: configService,
+          },
+          {
+            provide: 'REDIS_CLIENT',
+            useValue: null,
+          },
+        ],
+      }).compile();
+
+      const serviceWithoutRedis = module.get<AuthService>(AuthService);
+
+      const result = await serviceWithoutRedis.refresh('valid-refresh-token');
+      expect(result.accessToken).toBe('access-token');
+      expect(result.refreshToken).toBe('refresh-token');
+    });
+
+    it('throws ServiceUnavailableException in production when redis is unavailable', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          {
+            provide: PrismaService,
+            useValue: prisma,
+          },
+          {
+            provide: JwtService,
+            useValue: jwtService,
+          },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn((key: string) => {
+                if (key === 'jwt.secret') return 'test-secret';
+                if (key === 'jwt.refreshSecret') return 'test-refresh-secret';
+                if (key === 'jwt.expiresIn') return '15m';
+                if (key === 'jwt.refreshExpiresIn') return '7d';
+                if (key === 'app.nodeEnv') return 'production';
+                return undefined;
+              }),
+            },
+          },
+          {
+            provide: 'REDIS_CLIENT',
+            useValue: null,
+          },
+        ],
+      }).compile();
+
+      const serviceWithoutRedis = module.get<AuthService>(AuthService);
+
+      await expect(serviceWithoutRedis.refresh('valid-refresh-token')).rejects.toThrow(
+        ServiceUnavailableException,
+      );
     });
   });
 });

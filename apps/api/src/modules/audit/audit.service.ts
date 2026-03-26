@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateAuditLogDto } from './dto/create-audit-log.dto';
+import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
+import { CreateAuditLogDto, AuditOperation } from './dto/create-audit-log.dto';
 import { AuditLogResponseDto } from './dto/audit-log-response.dto';
 
 @Injectable()
@@ -10,38 +11,33 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(dto: CreateAuditLogDto): Promise<AuditLogResponseDto> {
-    try {
-      const auditLog = await this.prisma.auditLog.create({
-        data: {
-          userId: dto.userId,
-          entity: dto.entity,
-          entityId: dto.entityId,
-          operation: dto.operation,
-          oldValue: dto.oldValue ? JSON.stringify(dto.oldValue) : null,
-          newValue: dto.newValue ? JSON.stringify(dto.newValue) : null,
-          ipAddress: dto.ipAddress,
-          userAgent: dto.userAgent,
-        },
-      });
+    const auditLog = await this.prisma.auditLog.create({
+      data: {
+        userId: dto.userId,
+        entity: dto.entity,
+        entityId: dto.entityId,
+        operation: dto.operation,
+        oldValue: dto.oldValue ? JSON.stringify(dto.oldValue) : null,
+        newValue: dto.newValue ? JSON.stringify(dto.newValue) : null,
+        ipAddress: dto.ipAddress,
+        userAgent: dto.userAgent,
+      },
+    });
 
-      this.logger.debug(`Audit log created: ${dto.entity}.${dto.operation} on ${dto.entityId}`);
-      return this.toResponse(auditLog);
-    } catch (error) {
-      this.logger.error(`Failed to create audit log: ${error}`);
-      throw error;
-    }
+    this.logger.debug(`Audit log created: ${dto.entity}.${dto.operation} on ${dto.entityId}`);
+    return this.toResponse(auditLog);
   }
 
   async findAll(params: {
     entity?: string;
     entityId?: string;
     userId?: string;
-    operation?: string;
+    operation?: AuditOperation;
     startDate?: Date;
     endDate?: Date;
     page?: number;
     limit?: number;
-  }): Promise<{ data: AuditLogResponseDto[]; total: number }> {
+  }): Promise<PaginatedResponse<AuditLogResponseDto>> {
     const { entity, entityId, userId, operation, startDate, endDate, page = 1, limit = 20 } = params;
 
     const where: Record<string, unknown> = {};
@@ -69,7 +65,12 @@ export class AuditService {
 
     return {
       data: logs.map((log) => this.toResponse(log)),
-      total,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 

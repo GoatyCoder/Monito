@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, Matches, IsNumber, Min, Length } from 'class-validator';
+import { IsOptional, IsString, MaxLength, Matches, IsNumber, IsPositive, Length } from 'class-validator';
 
 export class CreateProcessedProductDto {
   @ApiProperty({ example: 'CEST10X500', maxLength: 32 })
@@ -25,8 +25,8 @@ export class CreateProcessedProductDto {
   @Matches(/^[0-9]{13}$/, { message: 'EAN must be exactly 13 digits' })
   ean?: string;
 
-  @ApiProperty({ example: 0.5, minimum: 0 })
+  @ApiProperty({ example: 0.5, minimum: 0.001 })
   @IsNumber()
-  @Min(0)
+  @IsPositive()
   weightPerBoxKg: number;
 }

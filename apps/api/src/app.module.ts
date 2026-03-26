@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -16,11 +16,14 @@ import { FieldLotsModule } from './modules/field-lots/field-lots.module';
 import { ProcessedProductsModule } from './modules/processed-products/processed-products.module';
 import { PackagingsModule } from './modules/packagings/packagings.module';
 import { PalletsModule } from './modules/pallets/pallets.module';
+import { HealthModule } from './modules/health/health.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { JwtStrategy } from './modules/auth/strategies/jwt.strategy';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 @Module({
   imports: [
@@ -69,6 +72,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     ProcessedProductsModule,
     PackagingsModule,
     PalletsModule,
+    HealthModule,
   ],
   providers: [
     JwtStrategy,
@@ -88,6 +92,14 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestLoggingInterceptor,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

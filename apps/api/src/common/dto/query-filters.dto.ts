@@ -1,6 +1,5 @@
-import { IsOptional, IsString, IsDateString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 
 export class QueryFiltersDto {
   @ApiPropertyOptional()
@@ -43,9 +42,4 @@ export class QueryFiltersDto {
   @IsString()
   createdBy?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  includeDeleted?: boolean;
 }

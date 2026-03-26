@@ -18,6 +18,9 @@ export class FieldLotResponseDto {
 
   @ApiPropertyOptional()
   updatedAt: Date;
+
+  @ApiPropertyOptional()
+  deletedAt: Date | null;
 }
 
 export class FieldLotWithDetailsResponseDto extends FieldLotResponseDto {

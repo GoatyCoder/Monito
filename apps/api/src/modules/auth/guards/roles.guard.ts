@@ -1,16 +1,17 @@
 import { Injectable, CanActivate, ExecutionContext, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '../../../../generated/prisma/client';
+
+export type AppRole = 'USER' | 'OPERATOR' | 'ADMIN';
 
 export const ROLES_KEY = 'roles';
-export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
+export const Roles = (...roles: AppRole[]) => SetMetadata(ROLES_KEY, roles);
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+    const requiredRoles = this.reflector.getAllAndOverride<AppRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
@@ -20,6 +21,10 @@ export class RolesGuard implements CanActivate {
     }
 
     const { user } = context.switchToHttp().getRequest();
-    return requiredRoles.includes(user.role);
+    if (!user?.role) {
+      return false;
+    }
+
+    return requiredRoles.includes(user.role as AppRole);
   }
 }

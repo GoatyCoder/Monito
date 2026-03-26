@@ -14,6 +14,7 @@ interface ErrorResponse {
   error: string;
   timestamp: string;
   path: string;
+  requestId?: string;
 }
 
 @Catch()
@@ -53,6 +54,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error,
       timestamp: new Date().toISOString(),
       path: request.url,
+      requestId: (request as Request & { requestId?: string }).requestId,
     };
 
     response.status(status).json(errorResponse);

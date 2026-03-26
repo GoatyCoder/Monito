@@ -10,6 +10,7 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronRight,
+  Accessibility,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserMenu } from './user-menu';
@@ -43,6 +44,11 @@ const navigation: NavItem[] = [
     title: 'Audit Log',
     href: '/audit',
     icon: ClipboardList,
+  },
+  {
+    title: 'Accessibilità',
+    href: '/accessibility',
+    icon: Accessibility,
   },
 ];
 

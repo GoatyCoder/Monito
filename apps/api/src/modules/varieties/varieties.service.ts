@@ -29,7 +29,7 @@ export class VarietiesService {
     }
 
     const product = await this.prisma.product.findUnique({
-      where: { id: dto.productId },
+      where: { id: dto.productId, deletedAt: null },
     });
 
     if (!product) {
@@ -62,11 +62,7 @@ export class VarietiesService {
     dto: ListQueryDto,
   ): Promise<PaginatedResponse<VarietyResponseDto>> {
     const { skip, take } = getPaginationParams(dto);
-    const where: Prisma.VarietyWhereInput = {};
-
-    if (!dto.includeDeleted) {
-      where.deletedAt = null;
-    }
+    const where: Prisma.VarietyWhereInput = { deletedAt: null };
 
     if (dto.productId) {
       where.productId = dto.productId;
@@ -100,10 +96,44 @@ export class VarietiesService {
     };
   }
 
-  async findById(id: string, includeDeleted = false): Promise<VarietyResponseDto> {
-    const where: Prisma.VarietyWhereUniqueInput = { id };
+  async findDeleted(
+    dto: ListQueryDto,
+  ): Promise<PaginatedResponse<VarietyResponseDto>> {
+    const { skip, take } = getPaginationParams(dto);
+    const where: Prisma.VarietyWhereInput = { deletedAt: { not: null } };
+
+    if (dto.productId) {
+      where.productId = dto.productId;
+    }
+
+    if (dto.search) {
+      where.OR = [{ code: { contains: dto.search } }, { name: { contains: dto.search } }];
+    }
+
+    const [varieties, total] = await this.prisma.$transaction([
+      this.prisma.variety.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.variety.count({ where }),
+    ]);
+
+    return {
+      data: varieties.map((v) => this.toResponse(v)),
+      meta: {
+        total,
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
+      },
+    };
+  }
+
+  async findById(id: string): Promise<VarietyResponseDto> {
     const variety = await this.prisma.variety.findUnique({
-      where: includeDeleted ? where : { ...where, deletedAt: null },
+      where: { id, deletedAt: null },
     });
 
     if (!variety) {
@@ -113,9 +143,21 @@ export class VarietiesService {
     return this.toResponse(variety);
   }
 
+  async findDeletedById(id: string): Promise<VarietyResponseDto> {
+    const variety = await this.prisma.variety.findUnique({
+      where: { id, deletedAt: { not: null } },
+    });
+
+    if (!variety) {
+      throw new NotFoundException(`Soft-deleted variety with ID ${id} not found`);
+    }
+
+    return this.toResponse(variety);
+  }
+
   async findByProductId(productId: string): Promise<VarietyResponseDto[]> {
     const product = await this.prisma.product.findUnique({
-      where: { id: productId },
+      where: { id: productId, deletedAt: null },
     });
 
     if (!product) {
@@ -168,46 +210,35 @@ export class VarietiesService {
     return this.toResponse(updated);
   }
 
-  async delete(id: string, force = false, userId?: string): Promise<void> {
+  async delete(id: string, userId?: string): Promise<void> {
     const variety = await this.prisma.variety.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
     });
 
     if (!variety) {
+      const deletedVariety = await this.prisma.variety.findUnique({ where: { id } });
+      if (deletedVariety?.deletedAt) {
+        throw new ConflictException(`Variety with ID ${id} is already deleted`);
+      }
+
       throw new NotFoundException(`Variety with ID ${id} not found`);
     }
 
-    if (force) {
-      await this.prisma.variety.delete({
-        where: { id },
-      });
+    const oldValue = this.toResponse(variety);
+    await this.prisma.variety.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
-      this.logger.log(`Variety hard deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.HARD_DELETE,
-        oldValue: this.toResponse(variety) as unknown as Record<string, unknown>,
-      });
-    } else {
-      const oldValue = this.toResponse(variety);
-      await this.prisma.variety.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      });
+    this.logger.log(`Variety soft deleted: ${id}`);
 
-      this.logger.log(`Variety soft deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.SOFT_DELETE,
-        oldValue: oldValue as unknown as Record<string, unknown>,
-      });
-    }
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.SOFT_DELETE,
+      oldValue: oldValue as unknown as Record<string, unknown>,
+    });
   }
 
   async restore(id: string, userId?: string): Promise<VarietyResponseDto> {
@@ -220,7 +251,7 @@ export class VarietiesService {
     }
 
     if (!variety.deletedAt) {
-      throw new NotFoundException(`Variety with ID ${id} is not deleted`);
+      throw new ConflictException(`Variety with ID ${id} is not deleted`);
     }
 
     const updated = await this.prisma.variety.update({
@@ -240,6 +271,36 @@ export class VarietiesService {
     });
 
     return this.toResponse(updated);
+  }
+
+  async purge(id: string, reason: string, userId?: string): Promise<void> {
+    const variety = await this.prisma.variety.findUnique({ where: { id } });
+
+    if (!variety) {
+      throw new NotFoundException(`Variety with ID ${id} not found`);
+    }
+
+    if (!variety.deletedAt) {
+      throw new ConflictException(`Variety with ID ${id} must be soft-deleted before purge`);
+    }
+
+    const linkedFieldLots = await this.prisma.fieldLot.count({ where: { varietyId: id } });
+    if (linkedFieldLots > 0) {
+      throw new ConflictException('Cannot purge variety because it is still referenced by field lots');
+    }
+
+    await this.prisma.variety.delete({ where: { id } });
+
+    this.logger.log(`Variety purged: ${id}`);
+
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.HARD_DELETE,
+      oldValue: this.toResponse(variety) as unknown as Record<string, unknown>,
+      newValue: { reason },
+    });
   }
 
   private toResponse(variety: { id: string; code: string; name: string; description: string | null; productId: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {

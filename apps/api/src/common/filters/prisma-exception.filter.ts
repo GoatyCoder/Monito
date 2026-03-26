@@ -1,5 +1,5 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus, Logger } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { Prisma } from '../../../generated/prisma/client';
 
 interface ErrorResponse {
@@ -8,6 +8,7 @@ interface ErrorResponse {
   error: string;
   timestamp: string;
   path: string;
+  requestId?: string;
 }
 
 @Catch(Prisma.PrismaClientKnownRequestError)
@@ -174,6 +175,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       error,
       timestamp: new Date().toISOString(),
       path: request.url,
+      requestId: (request as Request & { requestId?: string }).requestId,
     };
 
     response.status(status).json(errorResponse);

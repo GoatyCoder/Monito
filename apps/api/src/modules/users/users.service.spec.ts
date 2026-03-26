@@ -5,7 +5,7 @@ import { UsersService } from './users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../../generated/prisma/client';
 
-jest.mock('bcrypt', () => ({
+jest.mock('bcryptjs', () => ({
   hash: jest.fn().mockResolvedValue('hashedpassword'),
   compare: jest.fn().mockResolvedValue(true),
 }));

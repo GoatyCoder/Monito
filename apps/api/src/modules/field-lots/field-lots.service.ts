@@ -21,7 +21,7 @@ export class FieldLotsService {
 
   async create(dto: CreateFieldLotDto, userId?: string): Promise<FieldLotResponseDto> {
     const variety = await this.prisma.variety.findUnique({
-      where: { id: dto.varietyId },
+      where: { id: dto.varietyId, deletedAt: null },
     });
 
     if (!variety) {
@@ -61,11 +61,7 @@ export class FieldLotsService {
     dto: ListQueryDto,
   ): Promise<PaginatedResponse<FieldLotResponseDto>> {
     const { skip, take } = getPaginationParams(dto);
-    const where: Prisma.FieldLotWhereInput = {};
-
-    if (!dto.includeDeleted) {
-      where.deletedAt = null;
-    }
+    const where: Prisma.FieldLotWhereInput = { deletedAt: null };
 
     if (dto.varietyId) {
       where.varietyId = dto.varietyId;
@@ -104,14 +100,64 @@ export class FieldLotsService {
     };
   }
 
-  async findById(id: string, includeDeleted = false): Promise<FieldLotResponseDto> {
-    const where: Prisma.FieldLotWhereUniqueInput = { id };
+  async findDeleted(
+    dto: ListQueryDto,
+  ): Promise<PaginatedResponse<FieldLotResponseDto>> {
+    const { skip, take } = getPaginationParams(dto);
+    const where: Prisma.FieldLotWhereInput = { deletedAt: { not: null } };
+
+    if (dto.varietyId) {
+      where.varietyId = dto.varietyId;
+    }
+
+    if (dto.productId) {
+      where.variety = { productId: dto.productId };
+    }
+
+    if (dto.search) {
+      where.OR = [{ lotCode: { contains: dto.search } }, { supplier: { contains: dto.search } }];
+    }
+
+    const [fieldLots, total] = await this.prisma.$transaction([
+      this.prisma.fieldLot.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.fieldLot.count({ where }),
+    ]);
+
+    return {
+      data: fieldLots.map((f) => this.toResponse(f)),
+      meta: {
+        total,
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
+      },
+    };
+  }
+
+  async findById(id: string): Promise<FieldLotResponseDto> {
     const fieldLot = await this.prisma.fieldLot.findUnique({
-      where: includeDeleted ? where : { ...where, deletedAt: null },
+      where: { id, deletedAt: null },
     });
 
     if (!fieldLot) {
       throw new NotFoundException(`FieldLot with ID ${id} not found`);
+    }
+
+    return this.toResponse(fieldLot);
+  }
+
+  async findDeletedById(id: string): Promise<FieldLotResponseDto> {
+    const fieldLot = await this.prisma.fieldLot.findUnique({
+      where: { id, deletedAt: { not: null } },
+    });
+
+    if (!fieldLot) {
+      throw new NotFoundException(`Soft-deleted field lot with ID ${id} not found`);
     }
 
     return this.toResponse(fieldLot);
@@ -134,6 +180,7 @@ export class FieldLotsService {
       varietyId: fieldLot.varietyId,
       createdAt: fieldLot.createdAt,
       updatedAt: fieldLot.updatedAt,
+      deletedAt: fieldLot.deletedAt ?? null,
       variety: fieldLot.variety,
     };
   }
@@ -176,46 +223,35 @@ export class FieldLotsService {
     return this.toResponse(updated);
   }
 
-  async delete(id: string, force = false, userId?: string): Promise<void> {
+  async delete(id: string, userId?: string): Promise<void> {
     const fieldLot = await this.prisma.fieldLot.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
     });
 
     if (!fieldLot) {
+      const deletedFieldLot = await this.prisma.fieldLot.findUnique({ where: { id } });
+      if (deletedFieldLot?.deletedAt) {
+        throw new ConflictException(`FieldLot with ID ${id} is already deleted`);
+      }
+
       throw new NotFoundException(`FieldLot with ID ${id} not found`);
     }
 
-    if (force) {
-      await this.prisma.fieldLot.delete({
-        where: { id },
-      });
+    const oldValue = this.toResponse(fieldLot);
+    await this.prisma.fieldLot.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
-      this.logger.log(`FieldLot hard deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.HARD_DELETE,
-        oldValue: this.toResponse(fieldLot) as unknown as Record<string, unknown>,
-      });
-    } else {
-      const oldValue = this.toResponse(fieldLot);
-      await this.prisma.fieldLot.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      });
+    this.logger.log(`FieldLot soft deleted: ${id}`);
 
-      this.logger.log(`FieldLot soft deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.SOFT_DELETE,
-        oldValue: oldValue as unknown as Record<string, unknown>,
-      });
-    }
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.SOFT_DELETE,
+      oldValue: oldValue as unknown as Record<string, unknown>,
+    });
   }
 
   async restore(id: string, userId?: string): Promise<FieldLotResponseDto> {
@@ -228,7 +264,7 @@ export class FieldLotsService {
     }
 
     if (!fieldLot.deletedAt) {
-      throw new NotFoundException(`FieldLot with ID ${id} is not deleted`);
+      throw new ConflictException(`FieldLot with ID ${id} is not deleted`);
     }
 
     const updated = await this.prisma.fieldLot.update({
@@ -248,6 +284,36 @@ export class FieldLotsService {
     });
 
     return this.toResponse(updated);
+  }
+
+  async purge(id: string, reason: string, userId?: string): Promise<void> {
+    const fieldLot = await this.prisma.fieldLot.findUnique({ where: { id } });
+
+    if (!fieldLot) {
+      throw new NotFoundException(`FieldLot with ID ${id} not found`);
+    }
+
+    if (!fieldLot.deletedAt) {
+      throw new ConflictException(`FieldLot with ID ${id} must be soft-deleted before purge`);
+    }
+
+    const linkedPallets = await this.prisma.pallet.count({ where: { fieldLotId: id } });
+    if (linkedPallets > 0) {
+      throw new ConflictException('Cannot purge field lot because it is still referenced by pallets');
+    }
+
+    await this.prisma.fieldLot.delete({ where: { id } });
+
+    this.logger.log(`FieldLot purged: ${id}`);
+
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.HARD_DELETE,
+      oldValue: this.toResponse(fieldLot) as unknown as Record<string, unknown>,
+      newValue: { reason },
+    });
   }
 
   private toResponse(fieldLot: { id: string; lotCode: string; supplier: string; varietyId: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {

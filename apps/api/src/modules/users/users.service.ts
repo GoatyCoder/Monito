@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Role } from '../../../generated/prisma/client';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
@@ -129,7 +130,15 @@ export class UsersService {
     this.logger.log(`User deleted: ${id}`);
   }
 
-  private toResponse(user: { id: string; username: string; firstName: string; surname: string; role: 'USER' | 'ADMIN'; createdAt: Date; updatedAt?: Date }) {
+  private toResponse(user: {
+    id: string;
+    username: string;
+    firstName: string;
+    surname: string;
+    role: Role;
+    createdAt: Date;
+    updatedAt?: Date;
+  }) {
     return {
       id: user.id,
       username: user.username,

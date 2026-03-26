@@ -6,6 +6,8 @@ export interface User {
   firstName: string;
   surname: string;
   role: Role;
+  isActive: boolean;
+  mustChangePassword: boolean;
   avatarColor?: AvatarColor;
   createdAt: Date;
   updatedAt?: Date;
@@ -15,10 +17,14 @@ export type AvatarColor = 'blue' | 'green' | 'violet' | 'orange' | 'red' | 'pink
 
 export interface CreateUserDto {
   username: string;
-  password: string;
   firstName: string;
   surname: string;
   role?: Role;
+}
+
+export interface CreateUserResponse {
+  user: UserResponseDto;
+  temporaryPassword: string;
 }
 
 export interface UpdateUserDto {
@@ -53,9 +59,15 @@ export interface UserResponseDto {
   firstName: string;
   surname: string;
   role: Role;
+  isActive: boolean;
+  mustChangePassword: boolean;
   avatarColor?: AvatarColor;
   createdAt: Date;
   updatedAt?: Date;
+}
+
+export interface ResetUserPasswordResponse {
+  temporaryPassword: string;
 }
 
 export interface LoginRequest {
@@ -67,6 +79,11 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   user: UserResponseDto;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export interface RefreshTokenRequest {

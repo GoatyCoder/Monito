@@ -9,6 +9,8 @@ import { AuditPage } from '@/pages/audit-page';
 import { AccessibilityPage } from '@/pages/accessibility-page';
 import { ProfilePage } from '@/pages/profile-page';
 import { SettingsPage } from '@/pages/settings-page';
+import { UsersPage } from '@/pages/users-page';
+import { ChangePasswordPage } from '@/pages/change-password-page';
 import { AuthProvider } from '@/contexts/auth-context';
 import { AdminRoute, ProtectedRoute } from '@/components/layout/route-guards';
 
@@ -142,6 +144,26 @@ const settingsRoute = createRoute({
   ),
 });
 
+const usersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/users',
+  component: () => (
+    <AdminRoute>
+      <UsersPage />
+    </AdminRoute>
+  ),
+});
+
+const changePasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/change-password',
+  component: () => (
+    <ProtectedRoute>
+      <ChangePasswordPage />
+    </ProtectedRoute>
+  ),
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   indexRoute,
@@ -155,6 +177,8 @@ const routeTree = rootRoute.addChildren([
   accessibilityRoute,
   profileRoute,
   settingsRoute,
+  usersRoute,
+  changePasswordRoute,
 ]);
 
 export const router = createRouter({ routeTree });

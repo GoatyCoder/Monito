@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Accessibility,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserMenu } from './user-menu';
@@ -62,6 +63,7 @@ export function Sidebar({ className }: SidebarProps) {
         { title: 'Lavorati', href: '/processed-products', icon: PackageCheck },
         { title: 'Lotti', href: '/field-lots', icon: Warehouse },
         { title: 'Pedane', href: '/pallets', icon: ClipboardList },
+        ...(isAdmin ? [{ title: 'Utenti', href: '/users', icon: Users } as NavItem] : []),
       ],
     },
     ...(isAdmin

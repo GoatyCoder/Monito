@@ -18,6 +18,12 @@ export class UserResponseDto {
   @ApiProperty({ enum: Role })
   role: Role;
 
+  @ApiProperty()
+  isActive: boolean;
+
+  @ApiProperty()
+  mustChangePassword: boolean;
+
   @ApiPropertyOptional({ enum: AvatarColor })
   @Expose()
   avatarColor?: string;

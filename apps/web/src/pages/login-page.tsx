@@ -34,8 +34,8 @@ export function LoginPage() {
     setIsLoading(true);
     setError('');
     try {
-      await login(data);
-      navigate({ to: '/' });
+      const loggedUser = await login(data);
+      navigate({ to: loggedUser.mustChangePassword ? '/change-password' : '/' });
     } catch {
       showError('Username o password non validi');
       setError('Username o password non validi');

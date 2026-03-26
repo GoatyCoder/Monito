@@ -3,7 +3,7 @@ jest.mock('bcryptjs', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -26,6 +26,8 @@ describe('AuthService', () => {
     firstName: 'Test',
     surname: 'User',
     role: Role.USER,
+    isActive: true,
+    mustChangePassword: false,
     avatarColor: 'ORANGE',
     createdAt: new Date('2025-01-01T00:00:00.000Z'),
     updatedAt: new Date('2025-01-02T00:00:00.000Z'),
@@ -111,6 +113,8 @@ describe('AuthService', () => {
           firstName: true,
           surname: true,
           role: true,
+          isActive: true,
+          mustChangePassword: true,
           avatarColor: true,
           createdAt: true,
           updatedAt: true,
@@ -125,11 +129,21 @@ describe('AuthService', () => {
           firstName: mockUser.firstName,
           surname: mockUser.surname,
           role: mockUser.role,
-          avatarColor: mockUser.avatarColor,
+          isActive: mockUser.isActive,
+          mustChangePassword: mockUser.mustChangePassword,
+          avatarColor: 'orange',
           createdAt: mockUser.createdAt,
           updatedAt: mockUser.updatedAt,
         },
       });
+    });
+
+    it('throws ForbiddenException when user is disabled', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ ...mockUser, isActive: false });
+
+      await expect(service.login({ username: 'testuser', password: 'password123' })).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws UnauthorizedException when user is missing', async () => {

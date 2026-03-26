@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
   Logger,
   Inject,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -15,6 +16,7 @@ import { Role } from '../../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 const REFRESH_TOKEN_BLACKLIST_PREFIX = 'refresh:blacklist:';
@@ -27,6 +29,8 @@ interface AuthUserProfile {
   firstName: string;
   surname: string;
   role: Role;
+  isActive: boolean;
+  mustChangePassword: boolean;
   avatarColor?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -53,6 +57,8 @@ export class AuthService {
         firstName: true,
         surname: true,
         role: true,
+        isActive: true,
+        mustChangePassword: true,
         avatarColor: true,
         createdAt: true,
         updatedAt: true,
@@ -68,12 +74,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.isActive) {
+      throw new ForbiddenException('User account is disabled');
+    }
+
     return this.issueTokens({
       id: user.id,
       username: user.username,
       firstName: user.firstName,
       surname: user.surname,
       role: user.role,
+      isActive: user.isActive,
+      mustChangePassword: user.mustChangePassword,
       avatarColor: user.avatarColor,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -96,6 +108,8 @@ export class AuthService {
         firstName: true,
         surname: true,
         role: true,
+        isActive: true,
+        mustChangePassword: true,
         avatarColor: true,
         createdAt: true,
         updatedAt: true,
@@ -104,6 +118,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new ForbiddenException('User account is disabled');
     }
 
     await this.blacklistToken(refreshToken, payload.exp);
@@ -124,6 +142,36 @@ export class AuthService {
     }
 
     await this.blacklistToken(refreshToken, payload.exp);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        password: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is invalid');
+    }
+
+    const saltRounds = this.configService.get<number>('bcrypt.saltRounds') ?? 12;
+    const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: false,
+      },
+    });
   }
 
   private async issueTokens(user: AuthUserProfile): Promise<AuthResponseDto> {

@@ -14,6 +14,8 @@ model User {
   firstName   String
   surname     String
   role        Role         @default(USER)
+  isActive    Boolean      @default(true)
+  mustChangePassword Boolean @default(false)
   avatarColor AvatarColor? @default(BLUE)
   preferences UserPreferences?
   createdAt   DateTime     @default(now())

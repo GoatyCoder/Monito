@@ -16,7 +16,10 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiForbiddenResponse
 import { UsersService } from './users.service';
 import {
   CreateUserDto,
+  CreateUserResponseDto,
+  ResetUserPasswordResponseDto,
   UpdateMeDto,
+  UpdateUserStatusDto,
   UpdateUserDto,
   UpdateUserPreferencesDto,
   UserPreferencesResponseDto,
@@ -39,10 +42,10 @@ export class UsersController {
   @Post()
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Create a new user (ADMIN only)' })
-  @ApiResponse({ status: 201, description: 'User created', type: UserResponseDto })
+  @ApiResponse({ status: 201, description: 'User created', type: CreateUserResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   @ApiResponse({ status: 409, description: 'Username already exists' })
-  async create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
+  async create(@Body() dto: CreateUserDto): Promise<CreateUserResponseDto> {
     return this.usersService.create(dto);
   }
 
@@ -122,6 +125,27 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     return this.usersService.update(id, dto);
+  }
+
+  @Patch(':id/status')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Enable or disable user (ADMIN only)' })
+  @ApiResponse({ status: 200, description: 'User status updated', type: UserResponseDto })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserStatusDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateStatus(id, dto);
+  }
+
+  @Post(':id/reset-password')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Reset user password and return temporary password (ADMIN only)' })
+  @ApiResponse({ status: 200, description: 'Temporary password generated', type: ResetUserPasswordResponseDto })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async resetPassword(@Param('id') id: string): Promise<ResetUserPasswordResponseDto> {
+    return this.usersService.resetPassword(id);
   }
 
   @Delete(':id')

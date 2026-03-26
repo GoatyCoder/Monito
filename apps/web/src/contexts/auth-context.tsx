@@ -35,7 +35,7 @@ interface AuthContextType {
   user: User | null;
   preferences: UserPreferences;
   isLoading: boolean;
-  login: (data: LoginRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<User>;
   logout: () => void;
   refreshCurrentUser: () => Promise<void>;
   refreshPreferences: () => Promise<void>;
@@ -76,7 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { accessToken, refreshToken, user: userData } = response.data.data;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
-    setUser(normalizeUser(userData));
+    const normalizedUser = normalizeUser(userData);
+    setUser(normalizedUser);
 
     try {
       const prefs = await api.get<{ data: UserPreferences }>('/users/me/preferences');
@@ -84,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       setPreferences(DEFAULT_PREFERENCES);
     }
+
+    return normalizedUser;
   };
 
   const refreshCurrentUser = async () => {

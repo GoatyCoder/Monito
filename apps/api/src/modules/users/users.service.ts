@@ -4,8 +4,11 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AvatarColor, Role } from '../../../generated/prisma/client';
 import {
+  CreateUserResponseDto,
   CreateUserDto,
+  ResetUserPasswordResponseDto,
   UpdateMeDto,
+  UpdateUserStatusDto,
   UpdateUserDto,
   UpdateUserPreferencesDto,
   UserPreferencesResponseDto,
@@ -23,7 +26,7 @@ export class UsersService {
     private readonly configService: ConfigService,
   ) {}
 
-  async create(dto: CreateUserDto): Promise<UserResponseDto> {
+  async create(dto: CreateUserDto): Promise<CreateUserResponseDto> {
     const existing = await this.prisma.user.findUnique({
       where: { username: dto.username },
     });
@@ -32,8 +35,9 @@ export class UsersService {
       throw new ConflictException('User with this username already exists');
     }
 
+    const temporaryPassword = dto.password ?? this.generateTemporaryPassword();
     const saltRounds = this.configService.get<number>('bcrypt.saltRounds') ?? 12;
-    const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, saltRounds);
 
     const user = await this.prisma.user.create({
       data: {
@@ -42,11 +46,16 @@ export class UsersService {
         firstName: dto.firstName,
         surname: dto.surname,
         role: dto.role,
+        mustChangePassword: true,
+        isActive: true,
       },
     });
 
     this.logger.log(`User created: ${user.id}`);
-    return this.toResponse(user);
+    return {
+      user: this.toResponse(user),
+      temporaryPassword,
+    };
   }
 
   async findAll(paginationDto: PaginationDto): Promise<PaginatedResponse<UserResponseDto>> {
@@ -113,6 +122,43 @@ export class UsersService {
     });
 
     return this.toPreferencesResponse(updated);
+  }
+
+  async updateStatus(id: string, dto: UpdateUserStatusDto): Promise<UserResponseDto> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        isActive: dto.isActive,
+      },
+    });
+
+    return this.toResponse(updated);
+  }
+
+  async resetPassword(id: string): Promise<ResetUserPasswordResponseDto> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const saltRounds = this.configService.get<number>('bcrypt.saltRounds') ?? 12;
+    const password = await bcrypt.hash(temporaryPassword, saltRounds);
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        password,
+        mustChangePassword: true,
+      },
+    });
+
+    return { temporaryPassword };
   }
 
   private async updateUserData(id: string, dto: UpdateUserDto | UpdateMeDto): Promise<UserResponseDto> {
@@ -213,6 +259,8 @@ export class UsersService {
     surname: string;
     role: Role;
     avatarColor?: AvatarColor | null;
+    isActive: boolean;
+    mustChangePassword: boolean;
     createdAt: Date;
     updatedAt?: Date;
   }) {
@@ -222,9 +270,23 @@ export class UsersService {
       firstName: user.firstName,
       surname: user.surname,
       role: user.role,
+      isActive: user.isActive,
+      mustChangePassword: user.mustChangePassword,
       avatarColor: user.avatarColor ? user.avatarColor.toLowerCase() : undefined,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  private generateTemporaryPassword(length = 10): string {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let output = '';
+
+    for (let i = 0; i < length; i += 1) {
+      const index = Math.floor(Math.random() * alphabet.length);
+      output += alphabet[index];
+    }
+
+    return output;
   }
 }

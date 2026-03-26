@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -7,8 +7,11 @@ import {
   ApiNoContentResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RefreshTokenDto, AuthResponseDto } from './dto';
+import { LoginDto, RefreshTokenDto, AuthResponseDto, ChangePasswordDto } from './dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtPayload } from './strategies/jwt.strategy';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -42,5 +45,18 @@ export class AuthController {
   @ApiNoContentResponse({ description: 'Logout successful' })
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.authService.logout(dto.refreshToken);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Change current user password' })
+  @ApiNoContentResponse({ description: 'Password changed successfully' })
+  @ApiUnauthorizedResponse({ description: 'Invalid current password' })
+  async changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<void> {
+    await this.authService.changePassword(user.sub, dto);
   }
 }

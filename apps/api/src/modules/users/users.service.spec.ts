@@ -20,6 +20,8 @@ describe('UsersService', () => {
     firstName: 'Test',
     surname: 'User',
     role: Role.USER,
+    isActive: true,
+    mustChangePassword: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -83,13 +85,19 @@ describe('UsersService', () => {
       const result = await service.create(createDto);
 
       expect(result).toEqual({
-        id: mockUser.id,
-        username: mockUser.username,
-        firstName: mockUser.firstName,
-        surname: mockUser.surname,
-        role: mockUser.role,
-        createdAt: mockUser.createdAt,
-        updatedAt: mockUser.updatedAt,
+        user: {
+          id: mockUser.id,
+          username: mockUser.username,
+          firstName: mockUser.firstName,
+          surname: mockUser.surname,
+          role: mockUser.role,
+          isActive: mockUser.isActive,
+          mustChangePassword: mockUser.mustChangePassword,
+          avatarColor: undefined,
+          createdAt: mockUser.createdAt,
+          updatedAt: mockUser.updatedAt,
+        },
+        temporaryPassword: expect.any(String),
       });
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { username: 'newuser' } });
       expect(mockPrisma.user.create).toHaveBeenCalled();

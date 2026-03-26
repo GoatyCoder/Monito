@@ -116,10 +116,28 @@ User account behavior:
 
 ## Audit
 
-- `GET /audit` (`ADMIN`)
+- `GET /audit` (`ADMIN`) con filtri e sort
 - `GET /audit/entity/:entity` (`ADMIN`)
 - `GET /audit/entity/:entity/:entityId` (`ADMIN`)
 - `GET /audit/user/:userId` (`ADMIN`)
+
+Query principali su `GET /audit`:
+
+- singoli: `entity`, `entityId`, `userId`, `operation`
+- multipli CSV: `entities`, `userIds`, `operations`
+- temporali: `startDate`, `endDate`
+- ordinamento: `sort=timestamp_desc|timestamp_asc`
+
+Operazioni audit supportate:
+
+- `CREATE`, `UPDATE`, `SOFT_DELETE`, `RESTORE`, `HARD_DELETE`
+- `LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGOUT`, `PASSWORD_CHANGE`
+- `RESET_PASSWORD`, `STATUS_CHANGE`
+
+Audit payload response:
+
+- mantiene `userId` tecnico
+- aggiunge `username` e `userDisplayName` per visualizzazione user-friendly
 
 ## Response Contract
 

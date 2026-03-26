@@ -14,10 +14,12 @@ import { createHash } from 'crypto';
 import Redis from 'ioredis';
 import { Role } from '../../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 
 const REFRESH_TOKEN_BLACKLIST_PREFIX = 'refresh:blacklist:';
 const DEFAULT_ACCESS_EXPIRES_IN = '15m';
@@ -36,6 +38,11 @@ interface AuthUserProfile {
   updatedAt: Date;
 }
 
+interface AuditRequestMeta {
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -44,10 +51,11 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly auditQueue: AuditQueueService,
     @Inject('REDIS_CLIENT') private readonly redis: Redis | null,
   ) {}
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto, meta?: AuditRequestMeta): Promise<AuthResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { username: dto.username },
       select: {
@@ -66,17 +74,53 @@ export class AuthService {
     });
 
     if (!user) {
+      this.auditQueue.push({
+        entity: 'Auth',
+        entityId: dto.username,
+        operation: AuditOperation.LOGIN_FAILED,
+        newValue: { username: dto.username, reason: 'USER_NOT_FOUND' },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
+      this.auditQueue.push({
+        userId: user.id,
+        entity: 'Auth',
+        entityId: user.id,
+        operation: AuditOperation.LOGIN_FAILED,
+        newValue: { username: user.username, reason: 'INVALID_PASSWORD' },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user.isActive) {
+      this.auditQueue.push({
+        userId: user.id,
+        entity: 'Auth',
+        entityId: user.id,
+        operation: AuditOperation.LOGIN_FAILED,
+        newValue: { username: user.username, reason: 'USER_DISABLED' },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
       throw new ForbiddenException('User account is disabled');
     }
+
+    this.auditQueue.push({
+      userId: user.id,
+      entity: 'Auth',
+      entityId: user.id,
+      operation: AuditOperation.LOGIN_SUCCESS,
+      newValue: { username: user.username },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
 
     return this.issueTokens({
       id: user.id,
@@ -129,7 +173,7 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
-  async logout(refreshToken: string): Promise<void> {
+  async logout(refreshToken: string, meta?: AuditRequestMeta): Promise<void> {
     let payload: JwtPayload;
 
     try {
@@ -142,9 +186,18 @@ export class AuthService {
     }
 
     await this.blacklistToken(refreshToken, payload.exp);
+
+    this.auditQueue.push({
+      userId: payload.sub,
+      entity: 'Auth',
+      entityId: payload.sub,
+      operation: AuditOperation.LOGOUT,
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+  async changePassword(userId: string, dto: ChangePasswordDto, meta?: AuditRequestMeta): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -171,6 +224,15 @@ export class AuthService {
         password: hashedPassword,
         mustChangePassword: false,
       },
+    });
+
+    this.auditQueue.push({
+      userId,
+      entity: 'User',
+      entityId: userId,
+      operation: AuditOperation.PASSWORD_CHANGE,
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
     });
   }
 

@@ -16,6 +16,8 @@ import {
 } from './dto';
 import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
+import { AuditQueueService } from '../../common/events/audit-queue.service';
+import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +26,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly auditQueue: AuditQueueService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<CreateUserResponseDto> {
@@ -52,6 +55,16 @@ export class UsersService {
     });
 
     this.logger.log(`User created: ${user.id}`);
+    this.auditQueue.push({
+      entity: 'User',
+      entityId: user.id,
+      operation: AuditOperation.CREATE,
+      newValue: {
+        username: user.username,
+        role: user.role,
+        isActive: user.isActive,
+      },
+    });
     return {
       user: this.toResponse(user),
       temporaryPassword,
@@ -121,6 +134,21 @@ export class UsersService {
       },
     });
 
+    this.auditQueue.push({
+      userId: id,
+      entity: 'UserPreferences',
+      entityId: current.id,
+      operation: AuditOperation.UPDATE,
+      oldValue: {
+        masterDataPageSize: current.masterDataPageSize,
+        auditLogPageSize: current.auditLogPageSize,
+      },
+      newValue: {
+        masterDataPageSize: updated.masterDataPageSize,
+        auditLogPageSize: updated.auditLogPageSize,
+      },
+    });
+
     return this.toPreferencesResponse(updated);
   }
 
@@ -139,10 +167,19 @@ export class UsersService {
       },
     });
 
+    this.auditQueue.push({
+      userId: actorUserId,
+      entity: 'User',
+      entityId: id,
+      operation: AuditOperation.STATUS_CHANGE,
+      oldValue: { isActive: user.isActive },
+      newValue: { isActive: updated.isActive },
+    });
+
     return this.toResponse(updated);
   }
 
-  async resetPassword(id: string): Promise<ResetUserPasswordResponseDto> {
+  async resetPassword(id: string, actorUserId?: string): Promise<ResetUserPasswordResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
@@ -158,6 +195,13 @@ export class UsersService {
         password,
         mustChangePassword: true,
       },
+    });
+
+    this.auditQueue.push({
+      userId: actorUserId,
+      entity: 'User',
+      entityId: id,
+      operation: AuditOperation.RESET_PASSWORD,
     });
 
     return { temporaryPassword };
@@ -206,6 +250,26 @@ export class UsersService {
     });
 
     this.logger.log(`User updated: ${id}`);
+
+    this.auditQueue.push({
+      userId: actorUserId,
+      entity: 'User',
+      entityId: id,
+      operation: AuditOperation.UPDATE,
+      oldValue: {
+        username: user.username,
+        firstName: user.firstName,
+        surname: user.surname,
+        role: user.role,
+      },
+      newValue: {
+        username: updated.username,
+        firstName: updated.firstName,
+        surname: updated.surname,
+        role: updated.role,
+      },
+    });
+
     return this.toResponse(updated);
   }
 
@@ -222,6 +286,18 @@ export class UsersService {
 
     await this.prisma.user.delete({
       where: { id },
+    });
+
+    this.auditQueue.push({
+      userId: actorUserId,
+      entity: 'User',
+      entityId: id,
+      operation: AuditOperation.HARD_DELETE,
+      oldValue: {
+        username: user.username,
+        role: user.role,
+        isActive: user.isActive,
+      },
     });
 
     this.logger.log(`User deleted: ${id}`);

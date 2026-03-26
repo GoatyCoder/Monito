@@ -7,12 +7,18 @@ export type AuditOperation =
   | 'SOFT_DELETE'
   | 'RESTORE'
   | 'HARD_DELETE'
-  | 'LOGIN'
-  | 'LOGOUT';
+  | 'LOGIN_SUCCESS'
+  | 'LOGIN_FAILED'
+  | 'LOGOUT'
+  | 'PASSWORD_CHANGE'
+  | 'RESET_PASSWORD'
+  | 'STATUS_CHANGE';
 
 export interface AuditLogItem {
   id: string;
   userId?: string;
+  username?: string;
+  userDisplayName?: string;
   entity: string;
   entityId: string;
   operation: AuditOperation;
@@ -29,9 +35,13 @@ export interface AuditFilters {
   entity?: string;
   entityId?: string;
   operation?: AuditOperation;
+  operations?: AuditOperation[];
+  entities?: string[];
+  userIds?: string[];
   userId?: string;
   startDate?: string;
   endDate?: string;
+  sort?: 'timestamp_desc' | 'timestamp_asc';
 }
 
 interface PaginatedAuditResponse {
@@ -51,15 +61,32 @@ export function useAuditLogs(filters: AuditFilters = {}) {
     entity = '',
     entityId = '',
     operation,
+    operations,
+    entities,
+    userIds,
     userId = '',
     startDate,
     endDate,
+    sort = 'timestamp_desc',
   } = filters;
 
   return useQuery({
     queryKey: [
       'audit',
-      { page, limit, entity, entityId, operation, userId, startDate, endDate },
+      {
+        page,
+        limit,
+        entity,
+        entityId,
+        operation,
+        operations,
+        entities,
+        userIds,
+        userId,
+        startDate,
+        endDate,
+        sort,
+      },
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -68,9 +95,13 @@ export function useAuditLogs(filters: AuditFilters = {}) {
       if (entity) params.append('entity', entity);
       if (entityId) params.append('entityId', entityId);
       if (operation) params.append('operation', operation);
+      if (operations && operations.length > 0) params.append('operations', operations.join(','));
+      if (entities && entities.length > 0) params.append('entities', entities.join(','));
+      if (userIds && userIds.length > 0) params.append('userIds', userIds.join(','));
       if (userId) params.append('userId', userId);
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      if (sort) params.append('sort', sort);
 
       const response = await api.get<PaginatedAuditResponse>(`/audit?${params.toString()}`);
       return response.data;

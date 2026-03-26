@@ -25,6 +25,9 @@ describe('AuditService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    user: {
+      findMany: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -78,6 +81,14 @@ describe('AuditService', () => {
     it('returns paginated audit logs with meta', async () => {
       mockPrisma.auditLog.findMany.mockResolvedValue([mockAuditLog]);
       mockPrisma.auditLog.count.mockResolvedValue(1);
+      mockPrisma.user.findMany.mockResolvedValue([
+        {
+          id: 'user-id-1',
+          username: 'mrossi',
+          firstName: 'Mario',
+          surname: 'Rossi',
+        },
+      ]);
 
       const result = await service.findAll({
         entity: 'Product',
@@ -103,6 +114,7 @@ describe('AuditService', () => {
     it('applies date filters and operation filter', async () => {
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
       mockPrisma.auditLog.count.mockResolvedValue(0);
+      mockPrisma.user.findMany.mockResolvedValue([]);
 
       const startDate = new Date('2025-01-01T00:00:00.000Z');
       const endDate = new Date('2025-01-31T23:59:59.000Z');
@@ -138,6 +150,7 @@ describe('AuditService', () => {
         },
       ]);
       mockPrisma.auditLog.count.mockResolvedValue(1);
+      mockPrisma.user.findMany.mockResolvedValue([]);
 
       const result = await service.findAll({});
 

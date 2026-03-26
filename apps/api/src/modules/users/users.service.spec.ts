@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../../generated/prisma/client';
+import { AuditQueueService } from '../../common/events/audit-queue.service';
 
 jest.mock('bcryptjs', () => ({
   hash: jest.fn().mockResolvedValue('hashedpassword'),
@@ -58,6 +59,12 @@ describe('UsersService', () => {
               if (key === 'bcrypt.saltRounds') return 12;
               return null;
             }),
+          },
+        },
+        {
+          provide: AuditQueueService,
+          useValue: {
+            push: jest.fn(),
           },
         },
       ],

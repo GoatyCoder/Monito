@@ -34,6 +34,21 @@ export class AuditQueryDto {
   @IsEnum(AuditOperation)
   operation?: AuditOperation;
 
+  @ApiPropertyOptional({ description: 'Comma-separated operations list' })
+  @IsOptional()
+  @IsString()
+  operations?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated entities list' })
+  @IsOptional()
+  @IsString()
+  entities?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated user IDs list' })
+  @IsOptional()
+  @IsString()
+  userIds?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -48,4 +63,9 @@ export class AuditQueryDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @ApiPropertyOptional({ enum: ['timestamp_desc', 'timestamp_asc'], default: 'timestamp_desc' })
+  @IsOptional()
+  @IsString()
+  sort?: 'timestamp_desc' | 'timestamp_asc';
 }

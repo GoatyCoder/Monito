@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../../generated/prisma/client';
+import { AuditQueueService } from '../../common/events/audit-queue.service';
 
 type MockRedisClient = {
   get: jest.Mock;
@@ -60,6 +61,10 @@ describe('AuthService', () => {
     set: jest.fn(),
   };
 
+  const auditQueue = {
+    push: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -79,6 +84,10 @@ describe('AuthService', () => {
         {
           provide: 'REDIS_CLIENT',
           useValue: redis,
+        },
+        {
+          provide: AuditQueueService,
+          useValue: auditQueue,
         },
       ],
     }).compile();
@@ -243,6 +252,10 @@ describe('AuthService', () => {
             provide: 'REDIS_CLIENT',
             useValue: null,
           },
+          {
+            provide: AuditQueueService,
+            useValue: auditQueue,
+          },
         ],
       }).compile();
 
@@ -281,6 +294,10 @@ describe('AuthService', () => {
           {
             provide: 'REDIS_CLIENT',
             useValue: null,
+          },
+          {
+            provide: AuditQueueService,
+            useValue: auditQueue,
           },
         ],
       }).compile();

@@ -66,3 +66,19 @@ Per lookup UI (selector/combobox), usare endpoint `all` sui moduli anagrafica pr
 - `GET /packagings/all`
 
 Questi endpoint ritornano solo record attivi in formato `{ data: [...] }`.
+
+## Analizzare eventi audit
+
+Esempi utili:
+
+- ultimi eventi auth falliti:
+  - `GET /api/v1/audit?operations=LOGIN_FAILED&sort=timestamp_desc&page=1&limit=20`
+- cambi stato utenti in un periodo:
+  - `GET /api/v1/audit?entities=User&operations=STATUS_CHANGE&startDate=2026-01-01&endDate=2026-01-31`
+- attività su più entità:
+  - `GET /api/v1/audit?entities=Product,Variety,FieldLot&operations=CREATE,UPDATE`
+
+Nota pratica:
+
+- filtri multipli usano formato CSV (`entities`, `userIds`, `operations`)
+- per UI amministrativa sono esposti anche `username` e `userDisplayName` oltre a `userId`

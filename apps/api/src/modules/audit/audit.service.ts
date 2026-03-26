@@ -30,22 +30,42 @@ export class AuditService {
 
   async findAll(params: {
     entity?: string;
+    entities?: string[];
     entityId?: string;
     userId?: string;
+    userIds?: string[];
     operation?: AuditOperation;
+    operations?: string[];
     startDate?: Date;
     endDate?: Date;
+    sort?: 'timestamp_desc' | 'timestamp_asc';
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<AuditLogResponseDto>> {
-    const { entity, entityId, userId, operation, startDate, endDate, page = 1, limit = 20 } = params;
+    const {
+      entity,
+      entities,
+      entityId,
+      userId,
+      userIds,
+      operation,
+      operations,
+      startDate,
+      endDate,
+      sort = 'timestamp_desc',
+      page = 1,
+      limit = 20,
+    } = params;
 
     const where: Record<string, unknown> = {};
 
     if (entity) where.entity = entity;
+    if (entities && entities.length > 0) where.entity = { in: entities };
     if (entityId) where.entityId = entityId;
     if (userId) where.userId = userId;
+    if (userIds && userIds.length > 0) where.userId = { in: userIds };
     if (operation) where.operation = operation;
+    if (operations && operations.length > 0) where.operation = { in: operations };
 
     if (startDate || endDate) {
       where.timestamp = {};
@@ -58,13 +78,36 @@ export class AuditService {
         where,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: { timestamp: 'desc' },
+        orderBy: { timestamp: sort === 'timestamp_asc' ? 'asc' : 'desc' },
       }),
       this.prisma.auditLog.count({ where }),
     ]);
 
+    const userIdsInLogs = [...new Set(logs.map((log) => log.userId).filter(Boolean))] as string[];
+    const usersById = new Map<string, { username: string; firstName: string; surname: string }>();
+
+    if (userIdsInLogs.length > 0) {
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: userIdsInLogs } },
+        select: {
+          id: true,
+          username: true,
+          firstName: true,
+          surname: true,
+        },
+      });
+
+      users.forEach((user) => {
+        usersById.set(user.id, {
+          username: user.username,
+          firstName: user.firstName,
+          surname: user.surname,
+        });
+      });
+    }
+
     return {
-      data: logs.map((log) => this.toResponse(log)),
+      data: logs.map((log) => this.toResponse(log, usersById.get(log.userId ?? ''))),
       meta: {
         total,
         page,
@@ -74,7 +117,8 @@ export class AuditService {
     };
   }
 
-  private toResponse(log: {
+  private toResponse(
+    log: {
     id: string;
     userId: string | null;
     entity: string;
@@ -85,10 +129,14 @@ export class AuditService {
     ipAddress: string | null;
     userAgent: string | null;
     timestamp: Date;
-  }): AuditLogResponseDto {
+    },
+    user?: { username: string; firstName: string; surname: string },
+  ): AuditLogResponseDto {
     return {
       id: log.id,
       userId: log.userId,
+      username: user?.username ?? null,
+      userDisplayName: user ? `${user.firstName} ${user.surname}`.trim() : null,
       entity: log.entity,
       entityId: log.entityId,
       operation: log.operation,

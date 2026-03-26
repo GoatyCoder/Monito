@@ -30,11 +30,15 @@ export class AuditController {
   async findAll(@Query() query: AuditQueryDto): Promise<PaginatedResponse<AuditLogResponseDto>> {
     return this.auditService.findAll({
       entity: query.entity,
+      entities: this.parseCsv(query.entities),
       entityId: query.entityId,
       userId: query.userId,
+      userIds: this.parseCsv(query.userIds),
       operation: query.operation,
+      operations: this.parseCsv(query.operations),
       startDate: query.startDate ? new Date(query.startDate) : undefined,
       endDate: query.endDate ? new Date(query.endDate) : undefined,
+      sort: query.sort,
       page: query.page,
       limit: query.limit,
     });
@@ -54,6 +58,7 @@ export class AuditController {
       entity,
       startDate: query.startDate ? new Date(query.startDate) : undefined,
       endDate: query.endDate ? new Date(query.endDate) : undefined,
+      sort: query.sort,
       page: query.page,
       limit: query.limit,
     });
@@ -76,6 +81,7 @@ export class AuditController {
       entityId,
       startDate: query.startDate ? new Date(query.startDate) : undefined,
       endDate: query.endDate ? new Date(query.endDate) : undefined,
+      sort: query.sort,
       page: query.page,
       limit: query.limit,
     });
@@ -95,8 +101,19 @@ export class AuditController {
       userId,
       startDate: query.startDate ? new Date(query.startDate) : undefined,
       endDate: query.endDate ? new Date(query.endDate) : undefined,
+      sort: query.sort,
       page: query.page,
       limit: query.limit,
     });
+  }
+
+  private parseCsv(value?: string): string[] | undefined {
+    if (!value) return undefined;
+    const parsed = value
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    return parsed.length > 0 ? parsed : undefined;
   }
 }

@@ -1,4 +1,5 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -24,8 +25,11 @@ export class AuthController {
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful', type: AuthResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
-  async login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<AuthResponseDto> {
+    return this.authService.login(dto, {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+    });
   }
 
   @Public()
@@ -43,8 +47,11 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'User logout' })
   @ApiNoContentResponse({ description: 'Logout successful' })
-  async logout(@Body() dto: RefreshTokenDto): Promise<void> {
-    await this.authService.logout(dto.refreshToken);
+  async logout(@Body() dto: RefreshTokenDto, @Req() req: Request): Promise<void> {
+    await this.authService.logout(dto.refreshToken, {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+    });
   }
 
   @Post('change-password')
@@ -56,7 +63,11 @@ export class AuthController {
   async changePassword(
     @CurrentUser() user: JwtPayload,
     @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
   ): Promise<void> {
-    await this.authService.changePassword(user.sub, dto);
+    await this.authService.changePassword(user.sub, dto, {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+    });
   }
 }

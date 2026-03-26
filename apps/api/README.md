@@ -111,6 +111,23 @@ Cambio password utente autenticato:
 - `POST /auth/change-password` con body `{ currentPassword, newPassword }`
 - al primo accesso con password temporanea, il flag `mustChangePassword` forza il cambio password
 
+## Audit log operativo
+
+Eventi principali tracciati:
+
+- CRUD anagrafiche (`CREATE`, `UPDATE`, `SOFT_DELETE`, `RESTORE`, `HARD_DELETE`)
+- autenticazione (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGOUT`, `PASSWORD_CHANGE`)
+- gestione utenti (`STATUS_CHANGE`, `RESET_PASSWORD`, update profilo/preferenze)
+
+Filtri audit disponibili su `GET /audit`:
+
+- filtri singoli: `entity`, `entityId`, `userId`, `operation`
+- filtri multipli CSV: `entities`, `userIds`, `operations`
+- range temporale: `startDate`, `endDate`
+- ordinamento: `sort=timestamp_desc|timestamp_asc`
+
+Nota: nelle risposte audit sono inclusi anche `username` e `userDisplayName` per una UI più leggibile, mantenendo `userId` come riferimento tecnico.
+
 ## Endpoint lookup non paginati
 
 Per popolare combobox e selector lato frontend senza dipendere da `limit`/paginazione:

@@ -146,8 +146,11 @@ export class UsersController {
   @ApiOperation({ summary: 'Reset user password and return temporary password (ADMIN only)' })
   @ApiResponse({ status: 200, description: 'Temporary password generated', type: ResetUserPasswordResponseDto })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async resetPassword(@Param('id') id: string): Promise<ResetUserPasswordResponseDto> {
-    return this.usersService.resetPassword(id);
+  async resetPassword(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ResetUserPasswordResponseDto> {
+    return this.usersService.resetPassword(id, user.sub);
   }
 
   @Delete(':id')

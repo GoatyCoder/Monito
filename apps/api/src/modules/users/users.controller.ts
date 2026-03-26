@@ -14,7 +14,14 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiForbiddenResponse } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
+import {
+  CreateUserDto,
+  UpdateMeDto,
+  UpdateUserDto,
+  UpdateUserPreferencesDto,
+  UserPreferencesResponseDto,
+  UserResponseDto,
+} from './dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { RolesGuard, Roles } from '../auth/guards';
@@ -54,6 +61,37 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Current user details', type: UserResponseDto })
   async getMe(@CurrentUser() user: JwtPayload): Promise<UserResponseDto> {
     return this.usersService.findById(user.sub);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiResponse({ status: 200, description: 'Current user updated', type: UserResponseDto })
+  @ApiResponse({ status: 409, description: 'Username already exists' })
+  async updateMe(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateMeDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateMe(user.sub, dto);
+  }
+
+  @Get('me/preferences')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current user preferences' })
+  @ApiResponse({ status: 200, description: 'Current user preferences', type: UserPreferencesResponseDto })
+  async getMePreferences(@CurrentUser() user: JwtPayload): Promise<UserPreferencesResponseDto> {
+    return this.usersService.getMePreferences(user.sub);
+  }
+
+  @Patch('me/preferences')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update current user preferences' })
+  @ApiResponse({ status: 200, description: 'Current user preferences updated', type: UserPreferencesResponseDto })
+  async updateMePreferences(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateUserPreferencesDto,
+  ): Promise<UserPreferencesResponseDto> {
+    return this.usersService.updateMePreferences(user.sub, dto);
   }
 
   @Get(':id')

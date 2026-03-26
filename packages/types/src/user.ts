@@ -30,6 +30,23 @@ export interface UpdateUserDto {
   password?: string;
 }
 
+export interface UpdateMeDto {
+  username?: string;
+  firstName?: string;
+  surname?: string;
+  avatarColor?: AvatarColor;
+}
+
+export interface UserPreferences {
+  masterDataPageSize: 10 | 20 | 50 | 100;
+  auditLogPageSize: 10 | 20 | 50 | 100;
+}
+
+export interface UpdateUserPreferencesDto {
+  masterDataPageSize?: 10 | 20 | 50 | 100;
+  auditLogPageSize?: 10 | 20 | 50 | 100;
+}
+
 export interface UserResponseDto {
   id: string;
   username: string;

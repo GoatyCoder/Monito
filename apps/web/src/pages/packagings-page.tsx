@@ -48,12 +48,12 @@ type PackagingForm = z.infer<typeof packagingSchema>;
 
 export function PackagingsPage() {
   const formId = useId();
-  const { user } = useAuth();
+  const { user, preferences } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
   const [filters, setFilters] = useState<PackagingFilters>({
     page: 1,
-    limit: 20,
+    limit: preferences.masterDataPageSize,
     search: '',
     sort: '',
     view: 'active',

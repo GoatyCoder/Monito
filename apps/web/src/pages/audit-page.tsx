@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useAuth } from '@/contexts/auth-context';
 
 const operations: AuditOperation[] = [
   'CREATE',
@@ -23,9 +24,10 @@ const operations: AuditOperation[] = [
 ];
 
 export function AuditPage() {
+  const { preferences } = useAuth();
   const [filters, setFilters] = useState<AuditFilters>({
     page: 1,
-    limit: 20,
+    limit: preferences.auditLogPageSize,
     entity: '',
     entityId: '',
     userId: '',

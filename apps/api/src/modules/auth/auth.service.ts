@@ -27,7 +27,7 @@ interface AuthUserProfile {
   firstName: string;
   surname: string;
   role: Role;
-  avatarColor: string;
+  avatarColor?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -149,7 +149,14 @@ export class AuthService {
       expiresIn: jwtRefreshExpiresIn,
     } as Parameters<typeof this.jwtService.sign>[1]);
 
-    return { accessToken, refreshToken, user };
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        ...user,
+        avatarColor: user.avatarColor ? user.avatarColor.toLowerCase() : undefined,
+      },
+    };
   }
 
   private verifyRefreshToken(refreshToken: string): JwtPayload {

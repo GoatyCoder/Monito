@@ -29,10 +29,10 @@ const getInitials = (name: string): string => {
 };
 
 const getColorClass = (color?: string): string => {
-  if (!color) return 'bg-gray-500';
+  if (!color) return '#6B7280';
   const normalized = color.toLowerCase();
   const found = AVATAR_COLORS.find((c) => c.value === normalized);
-  return found?.className || 'bg-gray-500';
+  return found?.hex || '#6B7280';
 };
 
 export function UserMenu({ username, avatarColor }: UserMenuProps) {
@@ -53,8 +53,8 @@ export function UserMenu({ username, avatarColor }: UserMenuProps) {
           className="relative h-10 w-10 rounded-full hover:bg-secondary"
           aria-label={`Menu utente: ${username}`}
         >
-          <Avatar className="h-10 w-10">
-            <AvatarFallback className={`${getColorClass(avatarColor)} text-white`}>
+            <Avatar className="h-10 w-10">
+            <AvatarFallback className="text-white" style={{ backgroundColor: getColorClass(avatarColor) }}>
               {getInitials(username)}
             </AvatarFallback>
           </Avatar>
@@ -67,11 +67,11 @@ export function UserMenu({ username, avatarColor }: UserMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => navigate({ to: '/profile' })}>
           <User className="mr-2 h-4 w-4" />
           Profilo
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => navigate({ to: '/settings' })}>
           <Settings className="mr-2 h-4 w-4" />
           Impostazioni
         </DropdownMenuItem>

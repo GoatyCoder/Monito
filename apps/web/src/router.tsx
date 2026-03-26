@@ -7,6 +7,8 @@ import { ProcessedProductsPage } from '@/pages/processed-products-page';
 import { FieldLotsPage } from '@/pages/field-lots-page';
 import { AuditPage } from '@/pages/audit-page';
 import { AccessibilityPage } from '@/pages/accessibility-page';
+import { ProfilePage } from '@/pages/profile-page';
+import { SettingsPage } from '@/pages/settings-page';
 import { AuthProvider } from '@/contexts/auth-context';
 import { AdminRoute, ProtectedRoute } from '@/components/layout/route-guards';
 
@@ -120,6 +122,26 @@ const accessibilityRoute = createRoute({
   ),
 });
 
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profile',
+  component: () => (
+    <ProtectedRoute>
+      <ProfilePage />
+    </ProtectedRoute>
+  ),
+});
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: () => (
+    <ProtectedRoute>
+      <SettingsPage />
+    </ProtectedRoute>
+  ),
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   indexRoute,
@@ -131,6 +153,8 @@ const routeTree = rootRoute.addChildren([
   palletsRoute,
   auditRoute,
   accessibilityRoute,
+  profileRoute,
+  settingsRoute,
 ]);
 
 export const router = createRouter({ routeTree });

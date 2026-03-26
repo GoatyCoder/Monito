@@ -2,8 +2,15 @@ import { Injectable, NotFoundException, ConflictException, Logger } from '@nestj
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Role } from '../../../generated/prisma/client';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
+import { AvatarColor, Role } from '../../../generated/prisma/client';
+import {
+  CreateUserDto,
+  UpdateMeDto,
+  UpdateUserDto,
+  UpdateUserPreferencesDto,
+  UserPreferencesResponseDto,
+  UserResponseDto,
+} from './dto';
 import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 
@@ -78,6 +85,37 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<UserResponseDto> {
+    return this.updateUserData(id, dto);
+  }
+
+  async updateMe(id: string, dto: UpdateMeDto): Promise<UserResponseDto> {
+    return this.updateUserData(id, dto);
+  }
+
+  async getMePreferences(id: string): Promise<UserPreferencesResponseDto> {
+    const preferences = await this.getOrCreatePreferences(id);
+    return this.toPreferencesResponse(preferences);
+  }
+
+  async updateMePreferences(
+    id: string,
+    dto: UpdateUserPreferencesDto,
+  ): Promise<UserPreferencesResponseDto> {
+    await this.ensureUserExists(id);
+
+    const current = await this.getOrCreatePreferences(id);
+    const updated = await this.prisma.userPreferences.update({
+      where: { id: current.id },
+      data: {
+        masterDataPageSize: dto.masterDataPageSize ?? current.masterDataPageSize,
+        auditLogPageSize: dto.auditLogPageSize ?? current.auditLogPageSize,
+      },
+    });
+
+    return this.toPreferencesResponse(updated);
+  }
+
+  private async updateUserData(id: string, dto: UpdateUserDto | UpdateMeDto): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -99,8 +137,9 @@ export class UsersService {
     if (dto.username) data.username = dto.username;
     if (dto.firstName) data.firstName = dto.firstName;
     if (dto.surname) data.surname = dto.surname;
-    if (dto.role) data.role = dto.role;
-    if (dto.password) {
+    if ('role' in dto && dto.role) data.role = dto.role;
+    if ('avatarColor' in dto && dto.avatarColor) data.avatarColor = dto.avatarColor;
+    if ('password' in dto && dto.password) {
       const saltRounds = this.configService.get<number>('bcrypt.saltRounds') ?? 12;
       data.password = await bcrypt.hash(dto.password, saltRounds);
     }
@@ -130,12 +169,50 @@ export class UsersService {
     this.logger.log(`User deleted: ${id}`);
   }
 
+  private async ensureUserExists(id: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+  }
+
+  private async getOrCreatePreferences(id: string) {
+    await this.ensureUserExists(id);
+
+    const existing = await this.prisma.userPreferences.findUnique({
+      where: { userId: id },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.userPreferences.create({
+      data: {
+        userId: id,
+        masterDataPageSize: 20,
+        auditLogPageSize: 20,
+      },
+    });
+  }
+
+  private toPreferencesResponse(preferences: {
+    masterDataPageSize: number;
+    auditLogPageSize: number;
+  }): UserPreferencesResponseDto {
+    return {
+      masterDataPageSize: preferences.masterDataPageSize as 10 | 20 | 50 | 100,
+      auditLogPageSize: preferences.auditLogPageSize as 10 | 20 | 50 | 100,
+    };
+  }
+
   private toResponse(user: {
     id: string;
     username: string;
     firstName: string;
     surname: string;
     role: Role;
+    avatarColor?: AvatarColor | null;
     createdAt: Date;
     updatedAt?: Date;
   }) {
@@ -145,6 +222,7 @@ export class UsersService {
       firstName: user.firstName,
       surname: user.surname,
       role: user.role,
+      avatarColor: user.avatarColor ? user.avatarColor.toLowerCase() : undefined,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

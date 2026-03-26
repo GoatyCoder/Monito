@@ -54,12 +54,12 @@ type ProcessedProductForm = z.infer<typeof processedProductSchema>;
 
 export function ProcessedProductsPage() {
   const formId = useId();
-  const { user } = useAuth();
+  const { user, preferences } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
   const [filters, setFilters] = useState<ProcessedProductFilters>({
     page: 1,
-    limit: 20,
+    limit: preferences.masterDataPageSize,
     search: '',
     sort: '',
     view: 'active',

@@ -50,12 +50,12 @@ type VarietyForm = z.infer<typeof varietySchema>;
 
 export function VarietiesPage() {
   const formId = useId();
-  const { user } = useAuth();
+  const { user, preferences } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
   const [filters, setFilters] = useState<VarietyFilters>({
     page: 1,
-    limit: 20,
+    limit: preferences.masterDataPageSize,
     search: '',
     sort: '',
     view: 'active',

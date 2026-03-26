@@ -49,12 +49,12 @@ type FieldLotForm = z.infer<typeof fieldLotSchema>;
 
 export function FieldLotsPage() {
   const formId = useId();
-  const { user } = useAuth();
+  const { user, preferences } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
   const [filters, setFilters] = useState<FieldLotFilters>({
     page: 1,
-    limit: 20,
+    limit: preferences.masterDataPageSize,
     search: '',
     sort: '',
     view: 'active',

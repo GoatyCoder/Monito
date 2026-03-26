@@ -48,14 +48,14 @@ type ProductForm = z.infer<typeof productSchema>;
 
 export function ProductsPage() {
   const formId = useId();
+  const { user, preferences } = useAuth();
   const [filters, setFilters] = useState<ProductFilters>({
     page: 1,
-    limit: 20,
+    limit: preferences.masterDataPageSize,
     search: '',
     sort: '',
     view: 'active',
   });
-  const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
   const { data, isLoading } = useProducts(filters);

@@ -80,6 +80,15 @@ export class VarietiesController {
     return this.varietiesService.findDeletedById(id);
   }
 
+  @Get('all')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get all active varieties without pagination' })
+  @ApiResponse({ status: 200, description: 'All active varieties', type: [VarietyResponseDto] })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  async findAllActive(): Promise<VarietyResponseDto[]> {
+    return this.varietiesService.findAllActive();
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'OPERATOR')
   @ApiOperation({ summary: 'Get variety by ID' })

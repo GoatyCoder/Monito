@@ -2,9 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength, Matches } from 'class-validator';
 
 export class CreateVarietyDto {
-  @ApiProperty({ example: 'CRIMSON', maxLength: 32 })
+  @ApiProperty({ example: 'CRIMSON', maxLength: 14 })
   @IsString()
-  @MaxLength(32)
+  @MaxLength(14)
   @Matches(/^[A-Za-z0-9]+$/, { message: 'Code must contain only letters and numbers' })
   code: string;
 

@@ -49,3 +49,8 @@ Per risorse operative (`products`, `varieties`, `field-lots`, `processed-product
 - restore esplicito
 - purge hard-delete con reason obbligatoria
 - blocco purge su referenze attive dove previsto
+
+Per i campi `code` delle anagrafiche (`products`, `varieties`, `processed-products`, `packagings`):
+
+- in soft delete il codice viene rinominato con suffisso `_del_<timestamp>` entro il cap tecnico di 32 caratteri
+- il restore tenta di ripristinare il codice originale e fallisce con `409` se il codice e stato riutilizzato da un record attivo

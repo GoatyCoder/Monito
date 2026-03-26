@@ -26,6 +26,7 @@ describe('VarietiesService', () => {
     prisma = {
       variety: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -68,7 +69,7 @@ describe('VarietiesService', () => {
   });
 
   it('creates a variety when code is unique and product exists', async () => {
-    prisma.variety.findUnique.mockResolvedValue(null);
+    prisma.variety.findFirst.mockResolvedValue(null);
     prisma.product.findUnique.mockResolvedValue({ id: 'product-id-1' });
     prisma.variety.create.mockResolvedValue(mockVariety);
 
@@ -84,7 +85,7 @@ describe('VarietiesService', () => {
   });
 
   it('throws ConflictException when code already exists', async () => {
-    prisma.variety.findUnique.mockResolvedValue(mockVariety);
+    prisma.variety.findFirst.mockResolvedValue(mockVariety);
 
     await expect(
       service.create({ code: 'CRIMSON', name: 'Crimson', productId: 'product-id-1' }),
@@ -92,7 +93,7 @@ describe('VarietiesService', () => {
   });
 
   it('throws NotFoundException when product does not exist', async () => {
-    prisma.variety.findUnique.mockResolvedValue(null);
+    prisma.variety.findFirst.mockResolvedValue(null);
     prisma.product.findUnique.mockResolvedValue(null);
 
     await expect(
@@ -108,6 +109,18 @@ describe('VarietiesService', () => {
 
     expect(result.data).toHaveLength(1);
     expect(result.meta.total).toBe(1);
+  });
+
+  it('returns all active varieties without pagination', async () => {
+    prisma.variety.findMany.mockResolvedValue([mockVariety]);
+
+    const result = await service.findAllActive();
+
+    expect(prisma.variety.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+    expect(result).toHaveLength(1);
   });
 
   it('returns paginated deleted varieties', async () => {
@@ -134,8 +147,22 @@ describe('VarietiesService', () => {
 
     expect(prisma.variety.update).toHaveBeenCalledWith({
       where: { id: 'variety-id-1' },
-      data: { deletedAt: expect.any(Date) },
+      data: {
+        deletedAt: expect.any(Date),
+        code: expect.stringMatching(/^CRIMSON_del_\d+$/),
+      },
     });
+  });
+
+  it('throws ConflictException when restoring deleted variety with reused code', async () => {
+    prisma.variety.findUnique.mockResolvedValue({
+      ...mockVariety,
+      code: 'CRIMSON_del_1700000000000',
+      deletedAt: new Date(),
+    });
+    prisma.variety.findFirst.mockResolvedValue({ ...mockVariety, id: 'variety-id-2', code: 'CRIMSON' });
+
+    await expect(service.restore('variety-id-1')).rejects.toThrow(ConflictException);
   });
 
   it('throws ConflictException when deleting already deleted variety', async () => {

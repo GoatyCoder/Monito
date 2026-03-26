@@ -79,6 +79,15 @@ export class ProductsController {
     return this.productsService.findDeletedById(id);
   }
 
+  @Get('all')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get all active products without pagination' })
+  @ApiResponse({ status: 200, description: 'All active products', type: [ProductResponseDto] })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  async findAllActive(): Promise<ProductResponseDto[]> {
+    return this.productsService.findAllActive();
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'OPERATOR')
   @ApiOperation({ summary: 'Get product by ID with varieties' })

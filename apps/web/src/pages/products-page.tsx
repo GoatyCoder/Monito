@@ -39,7 +39,7 @@ import type { Product } from '@monito/types';
 import { useAuth } from '@/contexts/auth-context';
 
 const productSchema = z.object({
-  code: z.string().min(1, 'Codice richiesto'),
+  code: z.string().min(1, 'Codice richiesto').max(14, 'Massimo 14 caratteri'),
   name: z.string().min(1, 'Nome richiesto'),
   description: z.string().optional(),
 });
@@ -327,6 +327,7 @@ export function ProductsPage() {
                 <Label htmlFor="product-code">Codice</Label>
                 <Input
                   id="product-code"
+                  maxLength={14}
                   aria-describedby={errors.code ? 'product-code-error' : undefined}
                   {...register('code')}
                 />

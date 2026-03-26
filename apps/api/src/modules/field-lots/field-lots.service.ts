@@ -139,6 +139,15 @@ export class FieldLotsService {
     };
   }
 
+  async findAllActive(): Promise<FieldLotResponseDto[]> {
+    const fieldLots = await this.prisma.fieldLot.findMany({
+      where: { deletedAt: null },
+      orderBy: { lotCode: 'asc' },
+    });
+
+    return fieldLots.map((fieldLot) => this.toResponse(fieldLot));
+  }
+
   async findById(id: string): Promise<FieldLotResponseDto> {
     const fieldLot = await this.prisma.fieldLot.findUnique({
       where: { id, deletedAt: null },

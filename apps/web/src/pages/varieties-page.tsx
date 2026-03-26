@@ -12,7 +12,7 @@ import {
   useVarieties,
   type VarietyFilters,
 } from '@/hooks/use-varieties';
-import { useProducts } from '@/hooks/use-products';
+import { useAllProducts } from '@/hooks/use-products';
 import { useAuth } from '@/contexts/auth-context';
 import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,7 @@ import {
 import type { Variety } from '@monito/types';
 
 const varietySchema = z.object({
-  code: z.string().min(1, 'Codice richiesto'),
+  code: z.string().min(1, 'Codice richiesto').max(14, 'Massimo 14 caratteri'),
   name: z.string().min(1, 'Nome richiesto'),
   description: z.string().optional(),
   productId: z.string().min(1, 'Prodotto richiesto'),
@@ -62,7 +62,7 @@ export function VarietiesPage() {
   });
 
   const { data, isLoading } = useVarieties(filters);
-  const { data: productsData } = useProducts({ page: 1, limit: 200, view: 'active' });
+  const { data: productsData } = useAllProducts();
 
   const createVariety = useCreateVariety();
   const updateVariety = useUpdateVariety();
@@ -174,7 +174,7 @@ export function VarietiesPage() {
     }
   };
 
-  const products = productsData?.data ?? [];
+  const products = productsData ?? [];
   const productById = new Map(products.map((p) => [p.id, p.name]));
 
   return (
@@ -330,6 +330,7 @@ export function VarietiesPage() {
                 <Label htmlFor="variety-code">Codice</Label>
                 <Input
                   id="variety-code"
+                  maxLength={14}
                   aria-describedby={errors.code ? 'variety-code-error' : undefined}
                   {...register('code')}
                 />

@@ -84,6 +84,15 @@ export class ProcessedProductsController {
     return this.processedProductsService.findDeletedById(id);
   }
 
+  @Get('all')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get all active processed products without pagination' })
+  @ApiResponse({ status: 200, description: 'All active processed products', type: [ProcessedProductResponseDto] })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  findAllActive(): Promise<ProcessedProductResponseDto[]> {
+    return this.processedProductsService.findAllActive();
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'OPERATOR')
   @ApiOperation({ summary: 'Get a processed product by ID' })

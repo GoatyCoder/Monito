@@ -39,7 +39,7 @@ import {
 import type { Packaging } from '@monito/types';
 
 const packagingSchema = z.object({
-  code: z.string().min(1, 'Codice richiesto'),
+  code: z.string().min(1, 'Codice richiesto').max(14, 'Massimo 14 caratteri'),
   name: z.string().min(1, 'Nome richiesto'),
   description: z.string().optional(),
 });
@@ -305,6 +305,7 @@ export function PackagingsPage() {
                 <Label htmlFor="packaging-code">Codice</Label>
                 <Input
                   id="packaging-code"
+                  maxLength={14}
                   aria-describedby={errors.code ? 'packaging-code-error' : undefined}
                   {...register('code')}
                 />

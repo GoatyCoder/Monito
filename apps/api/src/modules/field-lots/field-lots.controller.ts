@@ -79,6 +79,15 @@ export class FieldLotsController {
     return this.fieldLotsService.findDeletedById(id);
   }
 
+  @Get('all')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get all active field lots without pagination' })
+  @ApiResponse({ status: 200, description: 'All active field lots', type: [FieldLotResponseDto] })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  async findAllActive(): Promise<FieldLotResponseDto[]> {
+    return this.fieldLotsService.findAllActive();
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'OPERATOR')
   @ApiOperation({ summary: 'Get field lot by ID' })

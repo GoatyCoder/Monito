@@ -12,7 +12,7 @@ import {
   useUpdateFieldLot,
   type FieldLotFilters,
 } from '@/hooks/use-field-lots';
-import { useVarieties } from '@/hooks/use-varieties';
+import { useAllVarieties } from '@/hooks/use-varieties';
 import { useAuth } from '@/contexts/auth-context';
 import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -61,7 +61,7 @@ export function FieldLotsPage() {
   });
 
   const { data, isLoading } = useFieldLots(filters);
-  const { data: varietiesData } = useVarieties({ page: 1, limit: 200, view: 'active' });
+  const { data: varietiesData } = useAllVarieties();
 
   const createFieldLot = useCreateFieldLot();
   const updateFieldLot = useUpdateFieldLot();
@@ -172,7 +172,7 @@ export function FieldLotsPage() {
     }
   };
 
-  const varieties = varietiesData?.data ?? [];
+  const varieties = varietiesData ?? [];
   const varietyById = new Map(varieties.map((v) => [v.id, v.name]));
 
   return (

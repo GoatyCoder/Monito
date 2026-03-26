@@ -1,4 +1,6 @@
 import type { CreateFieldLotDto, FieldLot, UpdateFieldLotDto } from '@monito/types';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { createResourceCrudHooks, ResourceFilters } from './use-resource-crud';
 
 export type FieldLotFilters = ResourceFilters;
@@ -15,3 +17,13 @@ export const useUpdateFieldLot = fieldLotCrud.useUpdate;
 export const useDeleteFieldLot = fieldLotCrud.useDelete;
 export const useRestoreFieldLot = fieldLotCrud.useRestore;
 export const usePurgeFieldLot = fieldLotCrud.usePurge;
+
+export function useAllFieldLots() {
+  return useQuery({
+    queryKey: ['field-lots', 'all'],
+    queryFn: async () => {
+      const response = await api.get<{ data: FieldLot[] }>('/field-lots/all');
+      return response.data.data;
+    },
+  });
+}

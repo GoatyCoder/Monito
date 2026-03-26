@@ -26,6 +26,7 @@ Base path: `/api/v1`
 
 - `POST /products` (`ADMIN`)
 - `GET /products` (`ADMIN`, `OPERATOR`) active only
+- `GET /products/all` (`ADMIN`, `OPERATOR`) active only, no pagination
 - `GET /products/deleted` (`ADMIN`)
 - `GET /products/deleted/:id` (`ADMIN`)
 - `GET /products/:id` (`ADMIN`, `OPERATOR`)
@@ -38,6 +39,7 @@ Base path: `/api/v1`
 
 - `POST /varieties` (`ADMIN`)
 - `GET /varieties` (`ADMIN`, `OPERATOR`) active only
+- `GET /varieties/all` (`ADMIN`, `OPERATOR`) active only, no pagination
 - `GET /varieties/deleted` (`ADMIN`)
 - `GET /varieties/deleted/:id` (`ADMIN`)
 - `GET /varieties/:id` (`ADMIN`, `OPERATOR`)
@@ -51,6 +53,7 @@ Base path: `/api/v1`
 
 - `POST /field-lots` (`ADMIN`)
 - `GET /field-lots` (`ADMIN`, `OPERATOR`) active only
+- `GET /field-lots/all` (`ADMIN`, `OPERATOR`) active only, no pagination
 - `GET /field-lots/deleted` (`ADMIN`)
 - `GET /field-lots/deleted/:id` (`ADMIN`)
 - `GET /field-lots/:id` (`ADMIN`, `OPERATOR`)
@@ -63,6 +66,7 @@ Base path: `/api/v1`
 
 - `POST /processed-products` (`ADMIN`)
 - `GET /processed-products` (`ADMIN`, `OPERATOR`) active only
+- `GET /processed-products/all` (`ADMIN`, `OPERATOR`) active only, no pagination
 - `GET /processed-products/deleted` (`ADMIN`)
 - `GET /processed-products/deleted/:id` (`ADMIN`)
 - `GET /processed-products/:id` (`ADMIN`, `OPERATOR`)
@@ -75,6 +79,7 @@ Base path: `/api/v1`
 
 - `POST /packagings` (`ADMIN`)
 - `GET /packagings` (`ADMIN`, `OPERATOR`) active only
+- `GET /packagings/all` (`ADMIN`, `OPERATOR`) active only, no pagination
 - `GET /packagings/deleted` (`ADMIN`)
 - `GET /packagings/deleted/:id` (`ADMIN`)
 - `GET /packagings/:id` (`ADMIN`, `OPERATOR`)
@@ -106,8 +111,17 @@ Base path: `/api/v1`
 ## Response Contract
 
 - dettaglio: `{ data: object }`
+- lista non paginata: `{ data: array }`
 - lista paginata: `{ data: array, meta: { total, page, limit, totalPages } }`
 - errore: `{ statusCode, message, error, timestamp, path, requestId }`
+
+## Code fields policy (domain master data)
+
+Per `products`, `varieties`, `processed-products`, `packagings`:
+
+- input API `code`: max `14` caratteri alfanumerici
+- soft delete: rename automatico in `<code>_del_<timestamp>` con cap finale `32`
+- restore: ripristina il codice originale, ma puo restituire `409` se il codice e gia riutilizzato da un record attivo
 
 ## Restore/Purge status codes
 

@@ -3,6 +3,8 @@ import type {
   ProcessedProduct,
   UpdateProcessedProductDto,
 } from '@monito/types';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { createResourceCrudHooks, ResourceFilters } from './use-resource-crud';
 
 export type ProcessedProductFilters = ResourceFilters;
@@ -20,3 +22,13 @@ export const useUpdateProcessedProduct = processedProductCrud.useUpdate;
 export const useDeleteProcessedProduct = processedProductCrud.useDelete;
 export const useRestoreProcessedProduct = processedProductCrud.useRestore;
 export const usePurgeProcessedProduct = processedProductCrud.usePurge;
+
+export function useAllProcessedProducts() {
+  return useQuery({
+    queryKey: ['processed-products', 'all'],
+    queryFn: async () => {
+      const response = await api.get<{ data: ProcessedProduct[] }>('/processed-products/all');
+      return response.data.data;
+    },
+  });
+}

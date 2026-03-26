@@ -39,7 +39,7 @@ import {
 import type { ProcessedProduct } from '@monito/types';
 
 const processedProductSchema = z.object({
-  code: z.string().min(1, 'Codice richiesto'),
+  code: z.string().min(1, 'Codice richiesto').max(14, 'Massimo 14 caratteri'),
   name: z.string().min(1, 'Nome richiesto'),
   description: z.string().optional(),
   ean: z
@@ -321,7 +321,7 @@ export function ProcessedProductsPage() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="processed-code">Codice</Label>
-                <Input id="processed-code" {...register('code')} />
+                <Input id="processed-code" maxLength={14} {...register('code')} />
                 {errors.code && <p className="text-sm text-red-600" role="alert">{errors.code.message}</p>}
               </div>
               <div className="space-y-2">

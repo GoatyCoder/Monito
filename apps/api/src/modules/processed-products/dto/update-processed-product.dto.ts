@@ -2,10 +2,10 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength, Matches, IsNumber, IsPositive, Length } from 'class-validator';
 
 export class UpdateProcessedProductDto {
-  @ApiPropertyOptional({ example: 'CEST10X500', maxLength: 32 })
+  @ApiPropertyOptional({ example: 'CEST10X500', maxLength: 14 })
   @IsOptional()
   @IsString()
-  @MaxLength(32)
+  @MaxLength(14)
   @Matches(/^[A-Za-z0-9]+$/, { message: 'Code must contain only letters and numbers' })
   code?: string;
 

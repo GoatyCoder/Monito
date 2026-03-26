@@ -59,6 +59,15 @@ Le seguenti entita usano soft delete (`deletedAt`):
 - `Pallet.palletNumber`
 - `DailyPalletCounter.id`
 
+## Policy codici e soft delete
+
+Per le entita con campo `code` (`Product`, `Variety`, `ProcessedProduct`, `Packaging`):
+
+- l'applicazione valida input utente con max `14` caratteri alfanumerici
+- in soft delete il service rinomina il codice in formato `_del_<timestamp>`
+- la rinomina e troncata in modo da rispettare il vincolo logico di lunghezza `32`
+- in restore viene tentato il ripristino del codice originale; se gia occupato da record attivo, viene restituito `409`
+
 ## Indici funzionali
 
 Indici aggiunti per query frequenti:

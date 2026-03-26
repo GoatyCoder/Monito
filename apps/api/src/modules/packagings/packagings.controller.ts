@@ -79,6 +79,15 @@ export class PackagingsController {
     return this.packagingsService.findDeletedById(id);
   }
 
+  @Get('all')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get all active packagings without pagination' })
+  @ApiResponse({ status: 200, description: 'All active packagings', type: [PackagingResponseDto] })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  async findAllActive(): Promise<PackagingResponseDto[]> {
+    return this.packagingsService.findAllActive();
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'OPERATOR')
   @ApiOperation({ summary: 'Get packaging by ID' })

@@ -84,11 +84,34 @@ pnpm run check:all
 
 - Envelope risposte:
   - dettaglio: `{ data: ... }`
+  - lista non paginata: `{ data: [...] }`
   - lista paginata: `{ data: [...], meta: { total, page, limit, totalPages } }`
 - Soft delete per risorse dominio via `DELETE /:id`
 - Restore via `POST /:id/restore`
 - Purge hard delete via `POST /:id/purge` con body `{ reason }`
 - Endpoints separati per cestino: `GET /resource/deleted` e `GET /resource/deleted/:id`
+- Endpoints lookup non paginati: `GET /resource/all` (solo record attivi)
+
+## Endpoint lookup non paginati
+
+Per popolare combobox e selector lato frontend senza dipendere da `limit`/paginazione:
+
+- `GET /products/all`
+- `GET /varieties/all`
+- `GET /field-lots/all`
+- `GET /processed-products/all`
+- `GET /packagings/all`
+
+Tutti richiedono autenticazione e rispettano RBAC (`ADMIN`, `OPERATOR`).
+
+## Regola codici business e soft delete
+
+Per i codici alfanumerici di `products`, `varieties`, `processed-products`, `packagings`:
+
+- lunghezza massima lato API/input utente: `14`
+- lunghezza target lato persistenza: `32`
+- in soft delete il codice viene rinominato con suffisso `_del_<timestamp>` restando entro 32 caratteri
+- in restore viene ripristinato il codice originale; se quel codice e gia usato da un record attivo, restore risponde `409`
 
 ## RBAC
 

@@ -54,3 +54,15 @@ Per ogni modulo dominio:
 ```
 
 Il purge puo restituire `409` se la risorsa e ancora referenziata.
+
+## Popolare combobox senza paginazione
+
+Per lookup UI (selector/combobox), usare endpoint `all` sui moduli anagrafica principali:
+
+- `GET /products/all`
+- `GET /varieties/all`
+- `GET /field-lots/all`
+- `GET /processed-products/all`
+- `GET /packagings/all`
+
+Questi endpoint ritornano solo record attivi in formato `{ data: [...] }`.

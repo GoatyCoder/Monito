@@ -25,6 +25,7 @@ describe('PackagingsService', () => {
     prisma = {
       packaging: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -64,7 +65,7 @@ describe('PackagingsService', () => {
   });
 
   it('creates packaging when code is unique', async () => {
-    prisma.packaging.findUnique.mockResolvedValue(null);
+    prisma.packaging.findFirst.mockResolvedValue(null);
     prisma.packaging.create.mockResolvedValue(mockPackaging);
 
     const result = await service.create({ code: 'IFCO6410', name: 'IFCO 6410' });
@@ -74,7 +75,7 @@ describe('PackagingsService', () => {
   });
 
   it('throws ConflictException when code already exists', async () => {
-    prisma.packaging.findUnique.mockResolvedValue(mockPackaging);
+    prisma.packaging.findFirst.mockResolvedValue(mockPackaging);
 
     await expect(service.create({ code: 'IFCO6410', name: 'IFCO' })).rejects.toThrow(
       ConflictException,
@@ -88,6 +89,18 @@ describe('PackagingsService', () => {
     const result = await service.findAll({ page: 1, limit: 20 });
 
     expect(result.meta.total).toBe(1);
+  });
+
+  it('returns all active packagings without pagination', async () => {
+    prisma.packaging.findMany.mockResolvedValue([mockPackaging]);
+
+    const result = await service.findAllActive();
+
+    expect(prisma.packaging.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+    expect(result).toHaveLength(1);
   });
 
   it('returns paginated deleted packagings', async () => {
@@ -113,8 +126,22 @@ describe('PackagingsService', () => {
 
     expect(prisma.packaging.update).toHaveBeenCalledWith({
       where: { id: 'packaging-id-1' },
-      data: { deletedAt: expect.any(Date) },
+      data: {
+        deletedAt: expect.any(Date),
+        code: expect.stringMatching(/^IFCO6410_del_\d+$/),
+      },
     });
+  });
+
+  it('throws ConflictException when restoring deleted packaging with reused code', async () => {
+    prisma.packaging.findUnique.mockResolvedValue({
+      ...mockPackaging,
+      code: 'IFCO6410_del_1700000000000',
+      deletedAt: new Date(),
+    });
+    prisma.packaging.findFirst.mockResolvedValue({ ...mockPackaging, id: 'packaging-id-2', code: 'IFCO6410' });
+
+    await expect(service.restore('packaging-id-1')).rejects.toThrow(ConflictException);
   });
 
   it('throws ConflictException when deleting already deleted packaging', async () => {

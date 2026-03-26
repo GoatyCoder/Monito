@@ -9,6 +9,8 @@ import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
 
 export const ENTITY_NAME = 'Product';
+const PRODUCT_CODE_DB_MAX_LENGTH = 32;
+const SOFT_DELETE_SUFFIX_PREFIX = '_del_';
 
 @Injectable()
 export class ProductsService {
@@ -20,8 +22,11 @@ export class ProductsService {
   ) {}
 
   async create(dto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
-    const existing = await this.prisma.product.findUnique({
-      where: { code: dto.code },
+    const existing = await this.prisma.product.findFirst({
+      where: {
+        code: dto.code,
+        deletedAt: null,
+      },
     });
 
     if (existing) {
@@ -114,6 +119,15 @@ export class ProductsService {
     };
   }
 
+  async findAllActive(): Promise<ProductResponseDto[]> {
+    const products = await this.prisma.product.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+
+    return products.map((product) => this.toResponse(product));
+  }
+
   private parseSort(sort?: string): Prisma.ProductOrderByWithRelationInput | undefined {
     if (!sort) return { createdAt: 'desc' };
 
@@ -168,8 +182,12 @@ export class ProductsService {
     }
 
     if (dto.code && dto.code !== product.code) {
-      const existing = await this.prisma.product.findUnique({
-        where: { code: dto.code },
+      const existing = await this.prisma.product.findFirst({
+        where: {
+          code: dto.code,
+          deletedAt: null,
+          NOT: { id },
+        },
       });
       if (existing) {
         throw new ConflictException('Product with this code already exists');
@@ -211,9 +229,13 @@ export class ProductsService {
     }
 
     const oldValue = this.toResponse(product);
+    const deletedCode = this.buildSoftDeletedCode(product.code);
     await this.prisma.product.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: {
+        deletedAt: new Date(),
+        code: deletedCode,
+      },
     });
 
     this.logger.log(`Product soft deleted: ${id}`);
@@ -240,9 +262,27 @@ export class ProductsService {
       throw new ConflictException(`Product with ID ${id} is not deleted`);
     }
 
+    const originalCode = this.extractOriginalCode(product.code);
+    const activeWithOriginalCode = await this.prisma.product.findFirst({
+      where: {
+        code: originalCode,
+        deletedAt: null,
+        NOT: { id },
+      },
+    });
+
+    if (activeWithOriginalCode) {
+      throw new ConflictException(
+        `Cannot restore product with ID ${id}: code ${originalCode} is already used by an active product`,
+      );
+    }
+
     const updated = await this.prisma.product.update({
       where: { id },
-      data: { deletedAt: null },
+      data: {
+        deletedAt: null,
+        code: originalCode,
+      },
     });
 
     this.logger.log(`Product restored: ${id}`);
@@ -306,5 +346,21 @@ export class ProductsService {
       ...this.toResponse(product),
       varieties: product.varieties,
     };
+  }
+
+  private buildSoftDeletedCode(code: string): string {
+    const suffix = `${SOFT_DELETE_SUFFIX_PREFIX}${Date.now()}`;
+    const originalMaxLength = PRODUCT_CODE_DB_MAX_LENGTH - suffix.length;
+    const safeCode = code.slice(0, originalMaxLength);
+    return `${safeCode}${suffix}`;
+  }
+
+  private extractOriginalCode(code: string): string {
+    const markerIndex = code.indexOf(SOFT_DELETE_SUFFIX_PREFIX);
+    if (markerIndex < 0) {
+      return code;
+    }
+
+    return code.slice(0, markerIndex);
   }
 }

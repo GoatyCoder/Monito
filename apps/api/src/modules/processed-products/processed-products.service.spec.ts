@@ -27,6 +27,7 @@ describe('ProcessedProductsService', () => {
     prisma = {
       processedProduct: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -66,7 +67,8 @@ describe('ProcessedProductsService', () => {
   });
 
   it('creates processed product when code and ean are unique', async () => {
-    prisma.processedProduct.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    prisma.processedProduct.findFirst.mockResolvedValueOnce(null);
+    prisma.processedProduct.findUnique.mockResolvedValueOnce(null);
     prisma.processedProduct.create.mockResolvedValue(mockProcessedProduct);
 
     const result = await service.create({
@@ -81,7 +83,7 @@ describe('ProcessedProductsService', () => {
   });
 
   it('throws ConflictException when code already exists', async () => {
-    prisma.processedProduct.findUnique.mockResolvedValue(mockProcessedProduct);
+    prisma.processedProduct.findFirst.mockResolvedValue(mockProcessedProduct);
 
     await expect(
       service.create({ code: 'CEST10X500', name: 'X', weightPerBoxKg: 0.5 }),
@@ -89,9 +91,8 @@ describe('ProcessedProductsService', () => {
   });
 
   it('throws ConflictException when ean already exists', async () => {
-    prisma.processedProduct.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(mockProcessedProduct);
+    prisma.processedProduct.findFirst.mockResolvedValueOnce(null);
+    prisma.processedProduct.findUnique.mockResolvedValueOnce(mockProcessedProduct);
 
     await expect(
       service.create({
@@ -122,6 +123,18 @@ describe('ProcessedProductsService', () => {
     expect(result.meta.total).toBe(1);
   });
 
+  it('returns all active processed products without pagination', async () => {
+    prisma.processedProduct.findMany.mockResolvedValue([mockProcessedProduct]);
+
+    const result = await service.findAllActive();
+
+    expect(prisma.processedProduct.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+    expect(result).toHaveLength(1);
+  });
+
   it('returns paginated deleted processed products', async () => {
     prisma.processedProduct.findMany.mockResolvedValue([
       { ...mockProcessedProduct, deletedAt: new Date() },
@@ -147,8 +160,26 @@ describe('ProcessedProductsService', () => {
 
     expect(prisma.processedProduct.update).toHaveBeenCalledWith({
       where: { id: 'processed-id-1' },
-      data: { deletedAt: expect.any(Date) },
+      data: {
+        deletedAt: expect.any(Date),
+        code: expect.stringMatching(/^CEST10X500_del_\d+$/),
+      },
     });
+  });
+
+  it('throws ConflictException when restoring deleted processed product with reused code', async () => {
+    prisma.processedProduct.findUnique.mockResolvedValue({
+      ...mockProcessedProduct,
+      code: 'CEST10X500_del_1700000000000',
+      deletedAt: new Date(),
+    });
+    prisma.processedProduct.findFirst.mockResolvedValue({
+      ...mockProcessedProduct,
+      id: 'processed-id-2',
+      code: 'CEST10X500',
+    });
+
+    await expect(service.restore('processed-id-1')).rejects.toThrow(ConflictException);
   });
 
   it('throws ConflictException when deleting already deleted processed product', async () => {

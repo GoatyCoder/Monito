@@ -9,6 +9,8 @@ import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
 
 export const ENTITY_NAME = 'Packaging';
+const CODE_DB_MAX_LENGTH = 32;
+const CODE_SOFT_DELETE_SUFFIX_PREFIX = '_del_';
 
 @Injectable()
 export class PackagingsService {
@@ -20,8 +22,11 @@ export class PackagingsService {
   ) {}
 
   async create(dto: CreatePackagingDto, userId?: string): Promise<PackagingResponseDto> {
-    const existing = await this.prisma.packaging.findUnique({
-      where: { code: dto.code },
+    const existing = await this.prisma.packaging.findFirst({
+      where: {
+        code: dto.code,
+        deletedAt: null,
+      },
     });
 
     if (existing) {
@@ -81,6 +86,15 @@ export class PackagingsService {
         totalPages: Math.ceil(total / (dto.limit ?? 20)),
       },
     };
+  }
+
+  async findAllActive(): Promise<PackagingResponseDto[]> {
+    const packagings = await this.prisma.packaging.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+
+    return packagings.map((packaging) => this.toResponse(packaging));
   }
 
   async findDeleted(
@@ -148,8 +162,12 @@ export class PackagingsService {
     }
 
     if (dto.code && dto.code !== packaging.code) {
-      const existing = await this.prisma.packaging.findUnique({
-        where: { code: dto.code },
+      const existing = await this.prisma.packaging.findFirst({
+        where: {
+          code: dto.code,
+          deletedAt: null,
+          NOT: { id },
+        },
       });
       if (existing) {
         throw new ConflictException('Packaging with this code already exists');
@@ -191,9 +209,13 @@ export class PackagingsService {
     }
 
     const oldValue = this.toResponse(packaging);
+    const deletedCode = this.buildSoftDeletedCode(packaging.code);
     await this.prisma.packaging.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: {
+        deletedAt: new Date(),
+        code: deletedCode,
+      },
     });
 
     this.logger.log(`Packaging soft deleted: ${id}`);
@@ -220,9 +242,27 @@ export class PackagingsService {
       throw new ConflictException(`Packaging with ID ${id} is not deleted`);
     }
 
+    const originalCode = this.extractOriginalCode(packaging.code);
+    const activeWithOriginalCode = await this.prisma.packaging.findFirst({
+      where: {
+        code: originalCode,
+        deletedAt: null,
+        NOT: { id },
+      },
+    });
+
+    if (activeWithOriginalCode) {
+      throw new ConflictException(
+        `Cannot restore packaging with ID ${id}: code ${originalCode} is already used by an active packaging`,
+      );
+    }
+
     const updated = await this.prisma.packaging.update({
       where: { id },
-      data: { deletedAt: null },
+      data: {
+        deletedAt: null,
+        code: originalCode,
+      },
     });
 
     this.logger.log(`Packaging restored: ${id}`);
@@ -279,5 +319,21 @@ export class PackagingsService {
       updatedAt: packaging.updatedAt,
       deletedAt: packaging.deletedAt ?? null,
     };
+  }
+
+  private buildSoftDeletedCode(code: string): string {
+    const suffix = `${CODE_SOFT_DELETE_SUFFIX_PREFIX}${Date.now()}`;
+    const originalMaxLength = CODE_DB_MAX_LENGTH - suffix.length;
+    const safeCode = code.slice(0, originalMaxLength);
+    return `${safeCode}${suffix}`;
+  }
+
+  private extractOriginalCode(code: string): string {
+    const markerIndex = code.indexOf(CODE_SOFT_DELETE_SUFFIX_PREFIX);
+    if (markerIndex < 0) {
+      return code;
+    }
+
+    return code.slice(0, markerIndex);
   }
 }

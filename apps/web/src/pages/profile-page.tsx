@@ -30,7 +30,19 @@ const profileSchema = z.object({
   avatarColor: z.enum(['blue', 'green', 'violet', 'orange', 'red', 'pink', 'gray']),
 });
 
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(6, 'Password attuale obbligatoria'),
+    newPassword: z.string().min(6, 'Nuova password minima 6 caratteri'),
+    confirmPassword: z.string().min(6, 'Conferma password obbligatoria'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Le password non coincidono',
+    path: ['confirmPassword'],
+  });
+
 type ProfileForm = z.infer<typeof profileSchema>;
+type PasswordForm = z.infer<typeof passwordSchema>;
 
 function toApiAvatarColor(value: AvatarColor): string {
   return value.toUpperCase();
@@ -53,6 +65,20 @@ export function ProfilePage() {
       surname: '',
       username: '',
       avatarColor: 'gray',
+    },
+  });
+
+  const {
+    register: registerPassword,
+    handleSubmit: handleSubmitPassword,
+    reset: resetPasswordForm,
+    formState: { errors: passwordErrors, isSubmitting: isSubmittingPassword },
+  } = useForm<PasswordForm>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
     },
   });
 
@@ -88,6 +114,20 @@ export function ProfilePage() {
       showSuccess('Profilo aggiornato con successo');
     } catch {
       showError('Errore durante l\'aggiornamento del profilo');
+    }
+  };
+
+  const onSubmitPassword = async (data: PasswordForm) => {
+    try {
+      await api.post('/auth/change-password', {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+      });
+      resetPasswordForm();
+      await refreshCurrentUser();
+      showSuccess('Password aggiornata con successo');
+    } catch {
+      showError('Errore durante cambio password');
     }
   };
 
@@ -167,6 +207,72 @@ export function ProfilePage() {
           <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
             <Save className="mr-2 h-4 w-4" aria-hidden="true" />
             {isSubmitting ? 'Salvataggio...' : 'Salva profilo'}
+          </Button>
+        </div>
+      </form>
+
+      <form
+        className="rounded-md border border-border bg-surface p-4 space-y-4"
+        aria-label="Cambio password"
+        onSubmit={handleSubmitPassword(onSubmitPassword)}
+      >
+        <h2 className="text-lg font-semibold text-foreground">Cambia password</h2>
+        <p className="text-sm text-foreground-muted">
+          Imposta una nuova password per il tuo account.
+        </p>
+
+        <div className="space-y-2">
+          <Label htmlFor="profile-current-password">Password attuale</Label>
+          <Input
+            id="profile-current-password"
+            type="password"
+            autoComplete="current-password"
+            {...registerPassword('currentPassword')}
+            aria-describedby={passwordErrors.currentPassword ? 'profile-current-password-error' : undefined}
+          />
+          {passwordErrors.currentPassword && (
+            <p id="profile-current-password-error" className="text-sm text-red-600" role="alert">
+              {passwordErrors.currentPassword.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="profile-new-password">Nuova password</Label>
+          <Input
+            id="profile-new-password"
+            type="password"
+            autoComplete="new-password"
+            {...registerPassword('newPassword')}
+            aria-describedby={passwordErrors.newPassword ? 'profile-new-password-error' : undefined}
+          />
+          {passwordErrors.newPassword && (
+            <p id="profile-new-password-error" className="text-sm text-red-600" role="alert">
+              {passwordErrors.newPassword.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="profile-confirm-password">Conferma nuova password</Label>
+          <Input
+            id="profile-confirm-password"
+            type="password"
+            autoComplete="new-password"
+            {...registerPassword('confirmPassword')}
+            aria-describedby={passwordErrors.confirmPassword ? 'profile-confirm-password-error' : undefined}
+          />
+          {passwordErrors.confirmPassword && (
+            <p id="profile-confirm-password-error" className="text-sm text-red-600" role="alert">
+              {passwordErrors.confirmPassword.message}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button type="submit" disabled={isSubmittingPassword} aria-busy={isSubmittingPassword}>
+            <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+            {isSubmittingPassword ? 'Salvataggio...' : 'Aggiorna password'}
           </Button>
         </div>
       </form>

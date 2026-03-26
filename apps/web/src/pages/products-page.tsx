@@ -3,12 +3,22 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Pencil, Trash2, RotateCcw } from 'lucide-react';
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestoreProduct, ProductFilters } from '@/hooks/use-products';
+import {
+  useProducts,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+  useRestoreProduct,
+  usePurgeProduct,
+  ProductFilters,
+} from '@/hooks/use-products';
 import { showSuccess, showError } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pagination, SearchInput } from '@/components/ui/data-table';
+import { ViewToggle } from '@/components/ui/view-toggle';
+import { PurgeDialog } from '@/components/ui/purge-dialog';
 import {
   Table,
   TableBody,
@@ -26,6 +36,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Product } from '@monito/types';
+import { useAuth } from '@/contexts/auth-context';
 
 const productSchema = z.object({
   code: z.string().min(1, 'Codice richiesto'),
@@ -42,18 +53,22 @@ export function ProductsPage() {
     limit: 20,
     search: '',
     sort: '',
-    includeDeleted: false,
+    view: 'active',
   });
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
 
   const { data, isLoading } = useProducts(filters);
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const restoreProduct = useRestoreProduct();
+  const purgeProduct = usePurgeProduct();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [purgingProduct, setPurgingProduct] = useState<Product | null>(null);
 
   const {
     register,
@@ -81,8 +96,8 @@ export function ProductsPage() {
     });
   }, []);
 
-  const handleToggleIncludeDeleted = useCallback(() => {
-    setFilters((prev) => ({ ...prev, includeDeleted: !prev.includeDeleted, page: 1 }));
+  const handleViewChange = useCallback((view: 'active' | 'deleted') => {
+    setFilters((prev) => ({ ...prev, view, page: 1 }));
   }, []);
 
   const handleRestore = async (id: string) => {
@@ -91,6 +106,18 @@ export function ProductsPage() {
       showSuccess('Prodotto ripristinato con successo');
     } catch {
       showError('Errore durante il ripristino');
+    }
+  };
+
+  const handlePurge = async (reason: string) => {
+    if (!purgingProduct) return;
+
+    try {
+      await purgeProduct.mutateAsync({ id: purgingProduct.id, reason });
+      showSuccess('Prodotto eliminato definitivamente');
+      setPurgingProduct(null);
+    } catch {
+      showError('Errore durante l\'eliminazione definitiva');
     }
   };
 
@@ -142,10 +169,12 @@ export function ProductsPage() {
     <div className="space-y-4" id="main-content" role="main" aria-label="Gestione prodotti">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Prodotti</h1>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-          Nuovo Prodotto
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => handleOpenDialog()}>
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+            Nuovo Prodotto
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-4">
@@ -154,15 +183,9 @@ export function ProductsPage() {
           onChange={handleSearchChange}
           placeholder="Cerca prodotti..."
         />
-        <label className="flex items-center gap-2 text-sm text-foreground-muted cursor-pointer">
-          <input
-            type="checkbox"
-            checked={filters.includeDeleted || false}
-            onChange={handleToggleIncludeDeleted}
-            className="rounded border-gray-300"
-          />
-          Mostra eliminati
-        </label>
+        {isAdmin && (
+          <ViewToggle view={filters.view ?? 'active'} onChange={handleViewChange} />
+        )}
       </div>
 
       <div className="border rounded-md" role="region" aria-label="Tabella prodotti">
@@ -228,19 +251,19 @@ export function ProductsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {product.deletedAt ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRestore(product.id)}
-                          aria-label={`Ripristina prodotto ${product.name}`}
-                          disabled={restoreProduct.isPending}
-                        >
-                          <RotateCcw className="h-4 w-4 text-green-600" aria-hidden="true" />
-                        </Button>
-                      ) : (
-                        <>
-                          <Button
+                       {product.deletedAt && isAdmin ? (
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() => handleRestore(product.id)}
+                           aria-label={`Ripristina prodotto ${product.name}`}
+                           disabled={restoreProduct.isPending}
+                         >
+                           <RotateCcw className="h-4 w-4 text-green-600" aria-hidden="true" />
+                         </Button>
+                       ) : isAdmin ? (
+                         <>
+                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => handleOpenDialog(product)}
@@ -254,13 +277,26 @@ export function ProductsPage() {
                             onClick={() => setDeletingProduct(product)}
                             aria-label={`Elimina prodotto ${product.name}`}
                           >
-                            <Trash2 className="h-4 w-4 text-red-600" aria-hidden="true" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                             <Trash2 className="h-4 w-4 text-red-600" aria-hidden="true" />
+                           </Button>
+                         </>
+                       ) : (
+                         <span className="text-xs text-foreground-muted">-</span>
+                       )}
+                       {product.deletedAt && isAdmin && (
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() => setPurgingProduct(product)}
+                           aria-label={`Elimina definitivamente prodotto ${product.name}`}
+                           disabled={purgeProduct.isPending}
+                         >
+                           <Trash2 className="h-4 w-4 text-red-600" aria-hidden="true" />
+                         </Button>
+                       )}
+                     </div>
+                   </TableCell>
+                 </TableRow>
               ))
             )}
           </TableBody>
@@ -336,6 +372,17 @@ export function ProductsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <PurgeDialog
+        open={!!purgingProduct}
+        onOpenChange={(open) => {
+          if (!open) setPurgingProduct(null);
+        }}
+        entityLabel="Prodotto"
+        itemName={purgingProduct?.name || ''}
+        pending={purgeProduct.isPending}
+        onConfirm={handlePurge}
+      />
 
       <Dialog open={!!deletingProduct} onOpenChange={() => setDeletingProduct(null)}>
         <DialogContent aria-describedby="delete-description">

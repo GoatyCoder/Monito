@@ -5,7 +5,7 @@ export interface FieldLot {
   varietyId: string;
   createdAt: Date;
   updatedAt?: Date;
-  deletedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface CreateFieldLotDto {
@@ -27,6 +27,7 @@ export interface FieldLotResponseDto {
   varietyId: string;
   createdAt: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface FieldLotWithVariety extends FieldLotResponseDto {

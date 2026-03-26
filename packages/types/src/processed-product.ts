@@ -7,7 +7,7 @@ export interface ProcessedProduct {
   weightPerBoxKg: number;
   createdAt: Date;
   updatedAt?: Date;
-  deletedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface CreateProcessedProductDto {
@@ -35,4 +35,5 @@ export interface ProcessedProductResponseDto {
   weightPerBoxKg: number;
   createdAt: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
 }

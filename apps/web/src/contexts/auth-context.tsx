@@ -1,14 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '@/lib/api';
-import { showSuccess, showError } from '@/lib/toast';
-import type { User, LoginRequest, LoginResponse, AvatarColor } from '@monito/types';
+import type { User, LoginRequest, LoginResponse } from '@monito/types';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (data: LoginRequest) => Promise<void>;
   logout: () => void;
-  updateAvatarColor: (color: AvatarColor) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,24 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    api.post('/auth/logout').catch(() => {});
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      api.post('/auth/logout', { refreshToken }).catch(() => {});
+    }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);
   };
 
-  const updateAvatarColor = async (color: AvatarColor) => {
-    try {
-      const response = await api.patch<{ data: User }>('/users/me/avatar-color', { avatarColor: color });
-      setUser(response.data.data);
-      showSuccess('Colore avatar aggiornato');
-    } catch {
-      showError('Errore durante l\'aggiornamento del colore avatar');
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateAvatarColor }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

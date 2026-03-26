@@ -5,7 +5,7 @@ export interface Packaging {
   description?: string;
   createdAt: Date;
   updatedAt?: Date;
-  deletedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface CreatePackagingDto {
@@ -27,4 +27,5 @@ export interface PackagingResponseDto {
   description?: string;
   createdAt: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
 }

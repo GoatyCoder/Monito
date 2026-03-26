@@ -30,7 +30,8 @@ const getInitials = (name: string): string => {
 
 const getColorClass = (color?: string): string => {
   if (!color) return 'bg-gray-500';
-  const found = AVATAR_COLORS.find((c) => c.value === color);
+  const normalized = color.toLowerCase();
+  const found = AVATAR_COLORS.find((c) => c.value === normalized);
   return found?.className || 'bg-gray-500';
 };
 

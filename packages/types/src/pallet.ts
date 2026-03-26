@@ -6,14 +6,20 @@ export interface Pallet {
   createdBy: string;
   createdAt: Date;
   updatedAt?: Date;
-  deletedAt?: Date;
+  deletedAt?: Date | null;
+}
+
+export interface CreatePalletItemDto {
+  processedProductId: string;
+  packagingId: string;
+  quantity: number;
 }
 
 export interface CreatePalletDto {
-  palletNumber: string;
-  netWeightKg: number;
   fieldLotId: string;
-  createdBy: string;
+  items: CreatePalletItemDto[];
+  createdBy?: string;
+  netWeightKg?: number;
 }
 
 export interface UpdatePalletDto {
@@ -30,6 +36,7 @@ export interface PalletResponseDto {
   createdBy: string;
   createdAt: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface PalletItem {

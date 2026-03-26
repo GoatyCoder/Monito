@@ -6,7 +6,7 @@ export interface Variety {
   productId: string;
   createdAt: Date;
   updatedAt?: Date;
-  deletedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface CreateVarietyDto {
@@ -31,6 +31,7 @@ export interface VarietyResponseDto {
   productId: string;
   createdAt: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 export interface VarietyWithProduct extends VarietyResponseDto {

@@ -23,35 +23,6 @@ interface NavItem {
   children?: NavItem[];
 }
 
-const navigation: NavItem[] = [
-  {
-    title: 'Dashboard',
-    href: '/',
-    icon: LayoutDashboard,
-  },
-  {
-    title: 'Anagrafica',
-    icon: Package,
-    children: [
-      { title: 'Prodotti', href: '/products', icon: Package },
-      { title: 'Varietà', href: '/varieties', icon: Leaf },
-      { title: 'Imballaggi', href: '/packagings', icon: Box },
-      { title: 'Lavorati', href: '/processed-products', icon: PackageCheck },
-      { title: 'Lotti', href: '/field-lots', icon: Warehouse },
-    ],
-  },
-  {
-    title: 'Audit Log',
-    href: '/audit',
-    icon: ClipboardList,
-  },
-  {
-    title: 'Accessibilità',
-    href: '/accessibility',
-    icon: Accessibility,
-  },
-];
-
 interface SidebarProps {
   className?: string;
 }
@@ -73,6 +44,41 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   const username = user ? `${user.firstName} ${user.surname}` : 'Utente';
+  const isAdmin = user?.role === 'ADMIN';
+
+  const navigation: NavItem[] = [
+    {
+      title: 'Dashboard',
+      href: '/',
+      icon: LayoutDashboard,
+    },
+    {
+      title: 'Anagrafica',
+      icon: Package,
+      children: [
+        { title: 'Prodotti', href: '/products', icon: Package },
+        { title: 'Varietà', href: '/varieties', icon: Leaf },
+        { title: 'Imballaggi', href: '/packagings', icon: Box },
+        { title: 'Lavorati', href: '/processed-products', icon: PackageCheck },
+        { title: 'Lotti', href: '/field-lots', icon: Warehouse },
+        { title: 'Pedane', href: '/pallets', icon: ClipboardList },
+      ],
+    },
+    ...(isAdmin
+      ? [
+          {
+            title: 'Audit Log',
+            href: '/audit',
+            icon: ClipboardList,
+          } as NavItem,
+        ]
+      : []),
+    {
+      title: 'Accessibilità',
+      href: '/accessibility',
+      icon: Accessibility,
+    },
+  ];
 
   return (
     <div className={cn('flex flex-col h-full bg-surface border-r border-border', className)}>

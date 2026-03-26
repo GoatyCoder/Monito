@@ -172,6 +172,46 @@ describe('UsersService', () => {
         service.update('user-id-1', { username: 'taken' }),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('should prevent self admin demotion', async () => {
+      const adminUser = { ...mockUser, role: Role.ADMIN, isActive: true };
+      mockPrisma.user.findUnique = jest.fn().mockResolvedValue(adminUser);
+
+      await expect(
+        service.update('user-id-1', { role: Role.USER }, 'user-id-1'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should prevent demoting last active admin', async () => {
+      const adminUser = { ...mockUser, role: Role.ADMIN, isActive: true };
+      mockPrisma.user.findUnique = jest.fn().mockResolvedValue(adminUser);
+      mockPrisma.user.count = jest.fn().mockResolvedValue(1);
+
+      await expect(
+        service.update('user-id-1', { role: Role.USER }, 'admin-2'),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should prevent self admin deactivation', async () => {
+      const adminUser = { ...mockUser, role: Role.ADMIN, isActive: true };
+      mockPrisma.user.findUnique = jest.fn().mockResolvedValue(adminUser);
+
+      await expect(
+        service.updateStatus('user-id-1', { isActive: false }, 'user-id-1'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should prevent deactivation of last active admin', async () => {
+      const adminUser = { ...mockUser, role: Role.ADMIN, isActive: true };
+      mockPrisma.user.findUnique = jest.fn().mockResolvedValue(adminUser);
+      mockPrisma.user.count = jest.fn().mockResolvedValue(1);
+
+      await expect(
+        service.updateStatus('user-id-1', { isActive: false }, 'admin-2'),
+      ).rejects.toThrow(ConflictException);
+    });
   });
 
   describe('delete', () => {
@@ -188,6 +228,21 @@ describe('UsersService', () => {
       mockPrisma.user.findUnique = jest.fn().mockResolvedValue(null);
 
       await expect(service.delete('non-existent')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should prevent self admin deletion', async () => {
+      const adminUser = { ...mockUser, role: Role.ADMIN, isActive: true };
+      mockPrisma.user.findUnique = jest.fn().mockResolvedValue(adminUser);
+
+      await expect(service.delete('user-id-1', 'user-id-1')).rejects.toThrow(ConflictException);
+    });
+
+    it('should prevent deletion of last active admin', async () => {
+      const adminUser = { ...mockUser, role: Role.ADMIN, isActive: true };
+      mockPrisma.user.findUnique = jest.fn().mockResolvedValue(adminUser);
+      mockPrisma.user.count = jest.fn().mockResolvedValue(1);
+
+      await expect(service.delete('user-id-1', 'admin-2')).rejects.toThrow(ConflictException);
     });
   });
 });

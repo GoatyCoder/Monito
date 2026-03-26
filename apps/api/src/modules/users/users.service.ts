@@ -93,12 +93,12 @@ export class UsersService {
     return this.toResponse(user);
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<UserResponseDto> {
-    return this.updateUserData(id, dto);
+  async update(id: string, dto: UpdateUserDto, actorUserId?: string): Promise<UserResponseDto> {
+    return this.updateUserData(id, dto, actorUserId);
   }
 
   async updateMe(id: string, dto: UpdateMeDto): Promise<UserResponseDto> {
-    return this.updateUserData(id, dto);
+    return this.updateUserData(id, dto, id);
   }
 
   async getMePreferences(id: string): Promise<UserPreferencesResponseDto> {
@@ -124,11 +124,13 @@ export class UsersService {
     return this.toPreferencesResponse(updated);
   }
 
-  async updateStatus(id: string, dto: UpdateUserStatusDto): Promise<UserResponseDto> {
+  async updateStatus(id: string, dto: UpdateUserStatusDto, actorUserId?: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
+
+    await this.ensureAdminCanBeDeactivated(user, dto.isActive, actorUserId);
 
     const updated = await this.prisma.user.update({
       where: { id },
@@ -161,7 +163,11 @@ export class UsersService {
     return { temporaryPassword };
   }
 
-  private async updateUserData(id: string, dto: UpdateUserDto | UpdateMeDto): Promise<UserResponseDto> {
+  private async updateUserData(
+    id: string,
+    dto: UpdateUserDto | UpdateMeDto,
+    actorUserId?: string,
+  ): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -177,6 +183,10 @@ export class UsersService {
       if (existing) {
         throw new ConflictException('User with this username already exists');
       }
+    }
+
+    if ('role' in dto && dto.role && dto.role !== user.role) {
+      await this.ensureAdminRoleCanBeChanged(user, dto.role, actorUserId);
     }
 
     const data: Record<string, unknown> = {};
@@ -199,7 +209,7 @@ export class UsersService {
     return this.toResponse(updated);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actorUserId?: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -208,11 +218,78 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
+    await this.ensureAdminCanBeDeleted(user, actorUserId);
+
     await this.prisma.user.delete({
       where: { id },
     });
 
     this.logger.log(`User deleted: ${id}`);
+  }
+
+  private async ensureAdminCanBeDeactivated(
+    user: { id: string; role: Role; isActive: boolean },
+    nextIsActive: boolean,
+    actorUserId?: string,
+  ): Promise<void> {
+    if (user.role !== Role.ADMIN || !user.isActive || nextIsActive) {
+      return;
+    }
+
+    if (actorUserId && user.id === actorUserId) {
+      throw new ConflictException('You cannot deactivate your own account');
+    }
+
+    const activeAdmins = await this.countActiveAdmins();
+    if (activeAdmins <= 1) {
+      throw new ConflictException('Cannot deactivate the last active admin');
+    }
+  }
+
+  private async ensureAdminRoleCanBeChanged(
+    user: { id: string; role: Role; isActive: boolean },
+    nextRole: Role,
+    actorUserId?: string,
+  ): Promise<void> {
+    if (user.role !== Role.ADMIN || nextRole === Role.ADMIN || !user.isActive) {
+      return;
+    }
+
+    if (actorUserId && user.id === actorUserId) {
+      throw new ConflictException('You cannot change your own admin role');
+    }
+
+    const activeAdmins = await this.countActiveAdmins();
+    if (activeAdmins <= 1) {
+      throw new ConflictException('Cannot remove the last active admin role');
+    }
+  }
+
+  private async ensureAdminCanBeDeleted(
+    user: { id: string; role: Role; isActive: boolean },
+    actorUserId?: string,
+  ): Promise<void> {
+    if (user.role !== Role.ADMIN || !user.isActive) {
+      return;
+    }
+
+    if (actorUserId && user.id === actorUserId) {
+      throw new ConflictException('You cannot delete your own account');
+    }
+
+    const activeAdmins = await this.countActiveAdmins();
+    if (activeAdmins <= 1) {
+      throw new ConflictException('Cannot delete the last active admin');
+    }
+  }
+
+  private async countActiveAdmins(): Promise<number> {
+    return this.prisma.user.count({
+      where: {
+        role: Role.ADMIN,
+        isActive: true,
+      },
+    });
   }
 
   private async ensureUserExists(id: string): Promise<void> {

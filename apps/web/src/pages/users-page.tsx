@@ -26,6 +26,7 @@ import {
 } from '@/hooks/use-users';
 import { showError, showSuccess } from '@/lib/toast';
 import type { Role, User } from '@monito/types';
+import { useAuth } from '@/contexts/auth-context';
 
 const userSchema = z.object({
   username: z.string().min(1, 'Username richiesto').max(32).regex(/^[A-Za-z0-9]+$/, 'Solo lettere e numeri'),
@@ -43,6 +44,7 @@ function roleLabel(role: Role): string {
 }
 
 export function UsersPage() {
+  const { user: currentUser } = useAuth();
   const formId = useId();
   const [filters, setFilters] = useState<UserFilters>({ page: 1, limit: 20, search: '' });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -197,6 +199,7 @@ export function UsersPage() {
                         variant={user.isActive ? 'destructive' : 'outline'}
                         size="sm"
                         onClick={() => handleToggleStatus(user)}
+                        disabled={currentUser?.id === user.id}
                       >
                         {user.isActive ? (
                           <>

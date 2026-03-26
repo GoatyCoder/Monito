@@ -92,6 +92,25 @@ pnpm run check:all
 - Endpoints separati per cestino: `GET /resource/deleted` e `GET /resource/deleted/:id`
 - Endpoints lookup non paginati: `GET /resource/all` (solo record attivi)
 
+## Gestione utenti amministrativa
+
+Per il modulo utenti (`ADMIN`):
+
+- creazione utente con password temporanea: `POST /users` -> `{ user, temporaryPassword }`
+- update dati/ruolo: `PATCH /users/:id`
+- attiva/disattiva account: `PATCH /users/:id/status` con body `{ isActive }`
+- reset password con temporanea: `POST /users/:id/reset-password` -> `{ temporaryPassword }`
+
+Guard rail di sicurezza:
+
+- un admin non puo disattivare o eliminare il proprio account
+- non e consentito rimuovere/disattivare/eliminare l\'ultimo admin attivo
+
+Cambio password utente autenticato:
+
+- `POST /auth/change-password` con body `{ currentPassword, newPassword }`
+- al primo accesso con password temporanea, il flag `mustChangePassword` forza il cambio password
+
 ## Endpoint lookup non paginati
 
 Per popolare combobox e selector lato frontend senza dipendere da `limit`/paginazione:

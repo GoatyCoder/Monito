@@ -122,9 +122,10 @@ export class UsersController {
   @ApiResponse({ status: 409, description: 'Username already exists' })
   async update(
     @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateUserDto,
   ): Promise<UserResponseDto> {
-    return this.usersService.update(id, dto);
+    return this.usersService.update(id, dto, user.sub);
   }
 
   @Patch(':id/status')
@@ -134,9 +135,10 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async updateStatus(
     @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateUserStatusDto,
   ): Promise<UserResponseDto> {
-    return this.usersService.updateStatus(id, dto);
+    return this.usersService.updateStatus(id, dto, user.sub);
   }
 
   @Post(':id/reset-password')
@@ -155,7 +157,10 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'User deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async delete(@Param('id') id: string): Promise<void> {
-    return this.usersService.delete(id);
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.usersService.delete(id, user.sub);
   }
 }

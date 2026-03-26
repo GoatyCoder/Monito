@@ -7,6 +7,7 @@ Base path: `/api/v1`
 - `POST /auth/login` (public)
 - `POST /auth/refresh` (public)
 - `POST /auth/logout` (public)
+- `POST /auth/change-password` (authenticated)
 
 ## Health
 
@@ -15,12 +16,24 @@ Base path: `/api/v1`
 
 ## Users
 
-- `POST /users` (`ADMIN`)
+- `POST /users` (`ADMIN`) returns `{ user, temporaryPassword }`
 - `GET /users` (`ADMIN`)
 - `GET /users/me` (authenticated)
+- `PATCH /users/me` (authenticated)
+- `GET /users/me/preferences` (authenticated)
+- `PATCH /users/me/preferences` (authenticated)
 - `GET /users/:id` (self or `ADMIN`)
 - `PATCH /users/:id` (`ADMIN`)
+- `PATCH /users/:id/status` (`ADMIN`)
+- `POST /users/:id/reset-password` (`ADMIN`) returns `{ temporaryPassword }`
 - `DELETE /users/:id` (`ADMIN`)
+
+User account behavior:
+
+- `UserResponse` include `isActive` e `mustChangePassword`
+- login rifiutato per account disattivati
+- password temporanea imposta `mustChangePassword=true`
+- `POST /auth/change-password` resetta `mustChangePassword=false` su successo
 
 ## Products
 

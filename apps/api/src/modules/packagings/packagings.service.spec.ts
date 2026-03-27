@@ -14,6 +14,10 @@ describe('PackagingsService', () => {
     code: 'IFCO6410',
     name: 'IFCO 6410',
     description: 'Plastic crate',
+    tareKg: 0.35,
+    outerLengthMm: 600,
+    outerWidthMm: 400,
+    outerHeightMm: 120,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -68,7 +72,14 @@ describe('PackagingsService', () => {
     prisma.packaging.findFirst.mockResolvedValue(null);
     prisma.packaging.create.mockResolvedValue(mockPackaging);
 
-    const result = await service.create({ code: 'IFCO6410', name: 'IFCO 6410' });
+    const result = await service.create({
+      code: 'IFCO6410',
+      name: 'IFCO 6410',
+      tareKg: 0.35,
+      outerLengthMm: 600,
+      outerWidthMm: 400,
+      outerHeightMm: 120,
+    });
 
     expect(result.id).toBe(mockPackaging.id);
     expect(auditQueue.push).toHaveBeenCalled();
@@ -77,7 +88,16 @@ describe('PackagingsService', () => {
   it('throws ConflictException when code already exists', async () => {
     prisma.packaging.findFirst.mockResolvedValue(mockPackaging);
 
-    await expect(service.create({ code: 'IFCO6410', name: 'IFCO' })).rejects.toThrow(
+    await expect(
+      service.create({
+        code: 'IFCO6410',
+        name: 'IFCO',
+        tareKg: 0.35,
+        outerLengthMm: 600,
+        outerWidthMm: 400,
+        outerHeightMm: 120,
+      }),
+    ).rejects.toThrow(
       ConflictException,
     );
   });

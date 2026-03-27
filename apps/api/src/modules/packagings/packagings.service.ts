@@ -309,12 +309,28 @@ export class PackagingsService {
     });
   }
 
-  private toResponse(packaging: { id: string; code: string; name: string; description: string | null; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {
+  private toResponse(packaging: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    tareKg?: Prisma.Decimal | number | null;
+    outerLengthMm?: number | null;
+    outerWidthMm?: number | null;
+    outerHeightMm?: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+  }) {
     return {
       id: packaging.id,
       code: packaging.code,
       name: packaging.name,
       description: packaging.description,
+      tareKg: packaging.tareKg == null ? null : Number(packaging.tareKg),
+      outerLengthMm: packaging.outerLengthMm ?? null,
+      outerWidthMm: packaging.outerWidthMm ?? null,
+      outerHeightMm: packaging.outerHeightMm ?? null,
       createdAt: packaging.createdAt,
       updatedAt: packaging.updatedAt,
       deletedAt: packaging.deletedAt ?? null,

@@ -36,7 +36,7 @@ export class CreatePalletDto {
 
   @ApiPropertyOptional({ minimum: 0 })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
   netWeightKg?: number;
 }

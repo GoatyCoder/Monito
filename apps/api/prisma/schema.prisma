@@ -8,33 +8,33 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(cuid())
-  username    String       @unique
-  password    String
-  firstName   String
-  surname     String
-  role        Role         @default(USER)
-  isActive    Boolean      @default(true)
-  mustChangePassword Boolean @default(false)
-  avatarColor AvatarColor? @default(BLUE)
-  preferences UserPreferences?
-  lastLoginAt DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                 String           @id @default(cuid())
+  username           String           @unique
+  password           String
+  firstName          String
+  surname            String
+  role               Role             @default(USER)
+  isActive           Boolean          @default(true)
+  mustChangePassword Boolean          @default(false)
+  avatarColor        AvatarColor?     @default(BLUE)
+  preferences        UserPreferences?
+  lastLoginAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@map("users")
 }
 
 model UserPreferences {
-  id               String   @id @default(cuid())
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId           String   @unique
-  masterDataPageSize Int    @default(20)
-  auditLogPageSize Int      @default(20)
-  lockScreenEnabled Boolean @default(true)
-  lockScreenTimeoutMinutes Int @default(5)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                   String   @unique
+  masterDataPageSize       Int      @default(20)
+  auditLogPageSize         Int      @default(20)
+  lockScreenEnabled        Boolean  @default(true)
+  lockScreenTimeoutMinutes Int      @default(5)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   @@map("user_preferences")
 }
@@ -56,16 +56,16 @@ enum Role {
 }
 
 model Product {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  name        String
-  description String?
-  subtypes    ProductSubtype[]
-  varieties   Variety[]
+  id                         String                           @id @default(cuid())
+  code                       String                           @unique
+  name                       String
+  description                String?
+  subtypes                   ProductSubtype[]
+  varieties                  Variety[]
   allowedInProcessedProducts ProcessedProductAllowedProduct[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  createdAt                  DateTime                         @default(now())
+  updatedAt                  DateTime                         @updatedAt
+  deletedAt                  DateTime?
 
   @@index([deletedAt])
   @@index([createdAt])
@@ -73,17 +73,17 @@ model Product {
 }
 
 model ProductSubtype {
-  id          String    @id @default(cuid())
-  code        String
-  name        String
-  description String?
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productId   String
-  varieties   Variety[]
+  id                         String                           @id @default(cuid())
+  code                       String
+  name                       String
+  description                String?
+  product                    Product                          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId                  String
+  varieties                  Variety[]
   allowedInProcessedProducts ProcessedProductAllowedSubtype[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  createdAt                  DateTime                         @default(now())
+  updatedAt                  DateTime                         @updatedAt
+  deletedAt                  DateTime?
 
   @@unique([productId, code])
   @@index([productId, deletedAt])
@@ -92,19 +92,19 @@ model ProductSubtype {
 }
 
 model Variety {
-  id          String    @id @default(cuid())
-  code        String
-  name        String
-  description String?
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productId   String
-  productSubtype   ProductSubtype? @relation(fields: [productSubtypeId], references: [id], onDelete: SetNull)
-  productSubtypeId String?
+  id                         String                           @id @default(cuid())
+  code                       String
+  name                       String
+  description                String?
+  product                    Product                          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId                  String
+  productSubtype             ProductSubtype?                  @relation(fields: [productSubtypeId], references: [id], onDelete: SetNull)
+  productSubtypeId           String?
   allowedInProcessedProducts ProcessedProductAllowedVariety[]
-  fieldLots   FieldLot[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  fieldLots                  FieldLot[]
+  createdAt                  DateTime                         @default(now())
+  updatedAt                  DateTime                         @updatedAt
+  deletedAt                  DateTime?
 
   @@unique([productId, code])
   @@index([productId, deletedAt])
@@ -131,19 +131,19 @@ model FieldLot {
 }
 
 model ProcessedProduct {
-  id             String      @id @default(cuid())
-  code           String      @unique
-  name           String
-  description    String?
-  ean            String?     @unique
-  weightPerBoxKg Float
-  palletItems    PalletItem[]
-  allowedProducts ProcessedProductAllowedProduct[]
-  allowedSubtypes ProcessedProductAllowedSubtype[]
+  id               String                           @id @default(cuid())
+  code             String                           @unique
+  name             String
+  description      String?
+  ean              String?                          @unique
+  weightPerBoxKg   Decimal
+  palletItems      PalletItem[]
+  allowedProducts  ProcessedProductAllowedProduct[]
+  allowedSubtypes  ProcessedProductAllowedSubtype[]
   allowedVarieties ProcessedProductAllowedVariety[]
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  deletedAt      DateTime?
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+  deletedAt        DateTime?
 
   @@index([deletedAt])
   @@index([createdAt])
@@ -151,12 +151,12 @@ model ProcessedProduct {
 }
 
 model ProcessedProductAllowedProduct {
-  id               String          @id @default(cuid())
-  processedProduct ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  processedProduct   ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Cascade)
   processedProductId String
-  product          Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productId        String
-  createdAt        DateTime        @default(now())
+  product            Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId          String
+  createdAt          DateTime         @default(now())
 
   @@unique([processedProductId, productId])
   @@index([processedProductId])
@@ -165,12 +165,12 @@ model ProcessedProductAllowedProduct {
 }
 
 model ProcessedProductAllowedSubtype {
-  id               String          @id @default(cuid())
-  processedProduct ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  processedProduct   ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Cascade)
   processedProductId String
-  productSubtype   ProductSubtype  @relation(fields: [productSubtypeId], references: [id], onDelete: Restrict)
-  productSubtypeId String
-  createdAt        DateTime        @default(now())
+  productSubtype     ProductSubtype   @relation(fields: [productSubtypeId], references: [id], onDelete: Restrict)
+  productSubtypeId   String
+  createdAt          DateTime         @default(now())
 
   @@unique([processedProductId, productSubtypeId])
   @@index([processedProductId])
@@ -179,12 +179,12 @@ model ProcessedProductAllowedSubtype {
 }
 
 model ProcessedProductAllowedVariety {
-  id               String          @id @default(cuid())
-  processedProduct ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  processedProduct   ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Cascade)
   processedProductId String
-  variety          Variety         @relation(fields: [varietyId], references: [id], onDelete: Restrict)
-  varietyId        String
-  createdAt        DateTime        @default(now())
+  variety            Variety          @relation(fields: [varietyId], references: [id], onDelete: Restrict)
+  varietyId          String
+  createdAt          DateTime         @default(now())
 
   @@unique([processedProductId, varietyId])
   @@index([processedProductId])
@@ -193,14 +193,18 @@ model ProcessedProductAllowedVariety {
 }
 
 model Packaging {
-  id          String        @id @default(cuid())
-  code        String        @unique
-  name        String
-  description String?
-  palletItems PalletItem[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
+  id            String       @id @default(cuid())
+  code          String       @unique
+  name          String
+  description   String?
+  tareKg        Decimal?
+  outerLengthMm Int?
+  outerWidthMm  Int?
+  outerHeightMm Int?
+  palletItems   PalletItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
 
   @@index([deletedAt])
   @@index([createdAt])
@@ -208,15 +212,15 @@ model Packaging {
 }
 
 model Pallet {
-  id           String        @id @default(cuid())
-  palletNumber String        @unique
-  netWeightKg  Float
-  fieldLot     FieldLot      @relation(fields: [fieldLotId], references: [id], onDelete: Restrict)
+  id           String       @id @default(cuid())
+  palletNumber String       @unique
+  netWeightKg  Decimal
+  fieldLot     FieldLot     @relation(fields: [fieldLotId], references: [id], onDelete: Restrict)
   fieldLotId   String
   createdBy    String
   items        PalletItem[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
   deletedAt    DateTime?
 
   @@index([deletedAt])
@@ -227,16 +231,16 @@ model Pallet {
 }
 
 model PalletItem {
-  id                String          @id @default(cuid())
-  quantity          Int
-  weightKg          Float
-  pallet            Pallet          @relation(fields: [palletId], references: [id], onDelete: Cascade)
-  palletId          String
-  processedProduct  ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Restrict)
+  id                 String           @id @default(cuid())
+  quantity           Int
+  weightKg           Decimal
+  pallet             Pallet           @relation(fields: [palletId], references: [id], onDelete: Cascade)
+  palletId           String
+  processedProduct   ProcessedProduct @relation(fields: [processedProductId], references: [id], onDelete: Restrict)
   processedProductId String
-  packaging         Packaging       @relation(fields: [packagingId], references: [id], onDelete: Restrict)
-  packagingId       String
-  createdAt         DateTime        @default(now())
+  packaging          Packaging        @relation(fields: [packagingId], references: [id], onDelete: Restrict)
+  packagingId        String
+  createdAt          DateTime         @default(now())
 
   @@index([palletId])
   @@index([processedProductId])
@@ -252,16 +256,16 @@ model DailyPalletCounter {
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  entity      String
-  entityId    String
-  operation   String
-  oldValue    String?
-  newValue    String?
-  ipAddress   String?
-  userAgent   String?
-  timestamp   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String?
+  entity    String
+  entityId  String
+  operation String
+  oldValue  String?
+  newValue  String?
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
 
   @@index([entity, entityId])
   @@index([userId])

@@ -165,6 +165,11 @@ Scope unicita codice:
 - `products`, `processed-products`, `packagings`: univoci globalmente
 - `product-subtypes`, `varieties`: univoci per `productId` (due prodotti diversi possono condividere lo stesso `code`)
 
+## Unita di misura e precisione
+
+- dimensioni: millimetri (`mm`) con campi interi
+- pesi: chilogrammi (`kg`) con precisione massima 3 decimali lato API
+
 ## Vincoli lavorati (ProcessedProduct)
 
 `ProcessedProduct` supporta vincoli opzionali multipli:
@@ -177,6 +182,15 @@ Regola applicata in creazione pallet: OR globale.
 
 - se non sono configurati vincoli, il lavorato e sempre consentito
 - se sono presenti, basta il match di uno tra prodotto/subtype/varieta
+
+## Campi imballaggi
+
+`Packaging` include i seguenti campi:
+
+- `tareKg` (tara in kg)
+- `outerLengthMm` (lunghezza esterna in mm)
+- `outerWidthMm` (larghezza esterna in mm)
+- `outerHeightMm` (altezza esterna in mm)
 
 ## RBAC
 

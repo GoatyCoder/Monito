@@ -36,7 +36,7 @@ export class CreateProcessedProductDto {
   ean?: string;
 
   @ApiProperty({ example: 0.5, minimum: 0.001 })
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 3 })
   @IsPositive()
   weightPerBoxKg: number;
 

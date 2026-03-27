@@ -39,7 +39,7 @@ export class UpdateProcessedProductDto {
 
   @ApiPropertyOptional({ example: 0.5, minimum: 0.001 })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 3 })
   @IsPositive()
   weightPerBoxKg?: number;
 

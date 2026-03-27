@@ -447,7 +447,7 @@ export class ProcessedProductsService {
     name: string;
     description: string | null;
     ean: string | null;
-    weightPerBoxKg: number;
+    weightPerBoxKg: Prisma.Decimal | number;
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date | null;
@@ -461,7 +461,7 @@ export class ProcessedProductsService {
       name: product.name,
       description: product.description,
       ean: product.ean,
-      weightPerBoxKg: product.weightPerBoxKg,
+      weightPerBoxKg: Number(product.weightPerBoxKg),
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt ?? null,

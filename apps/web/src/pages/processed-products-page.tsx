@@ -54,6 +54,9 @@ const processedProductSchema = z.object({
   allowedProductIds: z.array(z.string()).optional(),
   allowedSubtypeIds: z.array(z.string()).optional(),
   allowedVarietyIds: z.array(z.string()).optional(),
+}).refine((data) => Math.round(data.weightPerBoxKg * 1000) === data.weightPerBoxKg * 1000, {
+  path: ['weightPerBoxKg'],
+  message: 'Massimo 3 decimali',
 });
 
 type ProcessedProductForm = z.infer<typeof processedProductSchema>;

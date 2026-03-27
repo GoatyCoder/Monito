@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto, PalletItemResponseDto } from './dto';
+import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto } from './dto';
 import { getPaginationParams } from '../../common/dto/pagination.dto';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
@@ -82,18 +82,27 @@ export class PalletsService {
 
     const palletNumber = await this.generatePalletNumber();
 
-    const processedProductsMap = new Map<string, Prisma.ProcessedProductGetPayload<{}>>(processedProducts.map((pp) => [pp.id, pp]));
-    
+    const processedProductsMap = new Map<string, Prisma.ProcessedProductGetPayload<{}>>(
+      processedProducts.map((pp) => [pp.id, pp]),
+    );
+
     const totalWeight = dto.items.reduce((sum, item) => {
       const pp = processedProductsMap.get(item.processedProductId);
-      return sum + (pp?.weightPerBoxKg ?? 0) * item.quantity;
-    }, 0);
+      if (!pp) {
+        return sum;
+      }
+
+      return sum.plus(this.asDecimal(pp.weightPerBoxKg).mul(item.quantity));
+    }, new Prisma.Decimal(0));
+
+    const netWeight =
+      dto.netWeightKg !== undefined ? this.asDecimal(dto.netWeightKg) : totalWeight;
 
     const pallet = await this.prisma.$transaction(async (tx) => {
       const created = await tx.pallet.create({
         data: {
           palletNumber,
-          netWeightKg: dto.netWeightKg ?? totalWeight,
+          netWeightKg: netWeight,
           fieldLotId: dto.fieldLotId,
           createdBy: dto.createdBy ?? userId,
           items: {
@@ -101,7 +110,7 @@ export class PalletsService {
               const pp = processedProductsMap.get(item.processedProductId)!;
               return {
                 quantity: item.quantity,
-                weightKg: pp.weightPerBoxKg * item.quantity,
+                weightKg: this.asDecimal(pp.weightPerBoxKg).mul(item.quantity),
                 processedProductId: item.processedProductId,
                 packagingId: item.packagingId,
               };
@@ -127,7 +136,12 @@ export class PalletsService {
       entity: ENTITY_NAME,
       entityId: pallet.id,
       operation: AuditOperation.CREATE,
-      newValue: { palletNumber, netWeightKg: pallet.netWeightKg, fieldLotId: dto.fieldLotId, items: dto.items } as unknown as Record<string, unknown>,
+      newValue: {
+        palletNumber,
+        netWeightKg: this.decimalToNumber(pallet.netWeightKg),
+        fieldLotId: dto.fieldLotId,
+        items: dto.items,
+      } as unknown as Record<string, unknown>,
     });
 
     return this.toResponseWithItems(pallet);
@@ -466,11 +480,20 @@ export class PalletsService {
     return Math.floor(diff / oneDay);
   }
 
-  private toResponse(pallet: { id: string; palletNumber: string; netWeightKg: number; fieldLotId: string; createdBy: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {
+  private toResponse(pallet: {
+    id: string;
+    palletNumber: string;
+    netWeightKg: Prisma.Decimal | number;
+    fieldLotId: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+  }) {
     return {
       id: pallet.id,
       palletNumber: pallet.palletNumber,
-      netWeightKg: pallet.netWeightKg,
+      netWeightKg: this.decimalToNumber(pallet.netWeightKg),
       fieldLotId: pallet.fieldLotId,
       createdBy: pallet.createdBy,
       createdAt: pallet.createdAt,
@@ -479,14 +502,51 @@ export class PalletsService {
     };
   }
 
-  private toResponseWithItems(pallet: { id: string; palletNumber: string; netWeightKg: number; fieldLotId: string; createdBy: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null; items: { id: string; quantity: number; weightKg: number; processedProductId: string; packagingId: string; createdAt: Date }[] }) {
+  private toResponseWithItems(pallet: {
+    id: string;
+    palletNumber: string;
+    netWeightKg: Prisma.Decimal | number;
+    fieldLotId: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+    items?: {
+      id: string;
+      quantity: number;
+      weightKg: Prisma.Decimal | number;
+      processedProductId: string;
+      packagingId: string;
+      createdAt: Date;
+    }[];
+  }) {
     return {
       ...this.toResponse(pallet),
-      items: pallet.items.map((item) => this.toItemResponse(item)),
+      items: (pallet.items ?? []).map((item) => this.toItemResponse(item)),
     };
   }
 
-  private toResponseWithDetails(pallet: { id: string; palletNumber: string; netWeightKg: number; fieldLotId: string; createdBy: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null; fieldLot: unknown; items: (PalletItemResponseDto & { processedProduct: unknown; packaging: unknown })[] }) {
+  private toResponseWithDetails(pallet: {
+    id: string;
+    palletNumber: string;
+    netWeightKg: Prisma.Decimal | number;
+    fieldLotId: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+    fieldLot: unknown;
+    items: {
+      id: string;
+      quantity: number;
+      weightKg: Prisma.Decimal | number;
+      processedProductId: string;
+      packagingId: string;
+      createdAt: Date;
+      processedProduct: unknown;
+      packaging: unknown;
+    }[];
+  }) {
     return {
       ...this.toResponse(pallet),
       fieldLot: pallet.fieldLot,
@@ -498,15 +558,30 @@ export class PalletsService {
     };
   }
 
-  private toItemResponse(item: { id: string; quantity: number; weightKg: number; processedProductId: string; packagingId: string; createdAt: Date }) {
+  private toItemResponse(item: {
+    id: string;
+    quantity: number;
+    weightKg: Prisma.Decimal | number;
+    processedProductId: string;
+    packagingId: string;
+    createdAt: Date;
+  }) {
     return {
       id: item.id,
       quantity: item.quantity,
-      weightKg: item.weightKg,
+      weightKg: this.decimalToNumber(item.weightKg),
       processedProductId: item.processedProductId,
       packagingId: item.packagingId,
       createdAt: item.createdAt,
     };
+  }
+
+  private asDecimal(value: Prisma.Decimal | number): Prisma.Decimal {
+    return Prisma.Decimal.isDecimal(value) ? value : new Prisma.Decimal(value);
+  }
+
+  private decimalToNumber(value: Prisma.Decimal | number): number {
+    return Prisma.Decimal.isDecimal(value) ? value.toNumber() : value;
   }
 
   private isProcessedProductAllowedForFieldLot(

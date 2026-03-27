@@ -2,7 +2,7 @@ import { useCallback, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import {
   useCreatePackaging,
   useDeletePackaging,
@@ -42,6 +42,13 @@ const packagingSchema = z.object({
   code: z.string().min(1, 'Codice richiesto').max(14, 'Massimo 14 caratteri'),
   name: z.string().min(1, 'Nome richiesto'),
   description: z.string().optional(),
+  tareKg: z.coerce.number().positive('Tara richiesta e deve essere > 0'),
+  outerLengthMm: z.coerce.number().int('Deve essere un intero').positive('Valore richiesto'),
+  outerWidthMm: z.coerce.number().int('Deve essere un intero').positive('Valore richiesto'),
+  outerHeightMm: z.coerce.number().int('Deve essere un intero').positive('Valore richiesto'),
+}).refine((data) => Math.round(data.tareKg * 1000) === data.tareKg * 1000, {
+  path: ['tareKg'],
+  message: 'Massimo 3 decimali',
 });
 
 type PackagingForm = z.infer<typeof packagingSchema>;
@@ -70,6 +77,7 @@ export function PackagingsPage() {
   const [editingPackaging, setEditingPackaging] = useState<Packaging | null>(null);
   const [deletingPackaging, setDeletingPackaging] = useState<Packaging | null>(null);
   const [purgingPackaging, setPurgingPackaging] = useState<Packaging | null>(null);
+  const [showLogistics, setShowLogistics] = useState(false);
 
   const {
     register,
@@ -104,18 +112,44 @@ export function PackagingsPage() {
   const handleOpenDialog = (packaging?: Packaging) => {
     if (packaging) {
       setEditingPackaging(packaging);
-      reset({ code: packaging.code, name: packaging.name, description: packaging.description || '' });
+      reset({
+        code: packaging.code,
+        name: packaging.name,
+        description: packaging.description || '',
+        tareKg: packaging.tareKg ?? 0.35,
+        outerLengthMm: packaging.outerLengthMm ?? 600,
+        outerWidthMm: packaging.outerWidthMm ?? 400,
+        outerHeightMm: packaging.outerHeightMm ?? 120,
+      });
     } else {
       setEditingPackaging(null);
-      reset({ code: '', name: '', description: '' });
+      reset({
+        code: '',
+        name: '',
+        description: '',
+        tareKg: 0.35,
+        outerLengthMm: 600,
+        outerWidthMm: 400,
+        outerHeightMm: 120,
+      });
     }
+    setShowLogistics(false);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingPackaging(null);
-    reset({ code: '', name: '', description: '' });
+    setShowLogistics(false);
+    reset({
+      code: '',
+      name: '',
+      description: '',
+      tareKg: 0.35,
+      outerLengthMm: 600,
+      outerWidthMm: 400,
+      outerHeightMm: 120,
+    });
   };
 
   const onSubmit = async (formData: PackagingForm) => {
@@ -199,6 +233,8 @@ export function PackagingsPage() {
                 </button>
               </TableHead>
               <TableHead scope="col">Nome</TableHead>
+              <TableHead scope="col">Tara (kg)</TableHead>
+              <TableHead scope="col">Dim. esterne (mm)</TableHead>
               <TableHead scope="col">Descrizione</TableHead>
               <TableHead scope="col" className="w-[120px]">
                 Azioni
@@ -208,13 +244,13 @@ export function PackagingsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8" aria-busy="true" aria-live="polite">
+                <TableCell colSpan={6} className="text-center py-8" aria-busy="true" aria-live="polite">
                   Caricamento...
                 </TableCell>
               </TableRow>
             ) : data?.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-foreground-muted">
+                <TableCell colSpan={6} className="text-center py-8 text-foreground-muted">
                   Nessun imballaggio trovato
                 </TableCell>
               </TableRow>
@@ -226,6 +262,12 @@ export function PackagingsPage() {
                 >
                   <TableCell className="font-medium">{packaging.code}</TableCell>
                   <TableCell>{packaging.name}</TableCell>
+                  <TableCell>{packaging.tareKg ?? '-'}</TableCell>
+                  <TableCell>
+                    {packaging.outerLengthMm && packaging.outerWidthMm && packaging.outerHeightMm
+                      ? `${packaging.outerLengthMm}x${packaging.outerWidthMm}x${packaging.outerHeightMm}`
+                      : '-'}
+                  </TableCell>
                   <TableCell className="text-foreground-muted">{packaging.description || '-'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -331,6 +373,60 @@ export function PackagingsPage() {
               <div className="space-y-2">
                 <Label htmlFor="packaging-description">Descrizione</Label>
                 <Input id="packaging-description" {...register('description')} />
+              </div>
+              <div className="space-y-2 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowLogistics(!showLogistics)}
+                  className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-foreground/80"
+                >
+                  {showLogistics ? (
+                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  Specifiche imballaggio
+                </button>
+                {showLogistics && (
+                  <div className="grid gap-4 pt-2 sm:grid-cols-2">
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="packaging-tare">Tara (kg)</Label>
+                      <Input id="packaging-tare" type="number" step="0.001" {...register('tareKg')} />
+                      {errors.tareKg && (
+                        <p className="text-sm text-red-600" role="alert">
+                          {errors.tareKg.message}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="packaging-length">Lunghezza esterna (mm)</Label>
+                      <Input id="packaging-length" type="number" step="1" {...register('outerLengthMm')} />
+                      {errors.outerLengthMm && (
+                        <p className="text-sm text-red-600" role="alert">
+                          {errors.outerLengthMm.message}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="packaging-width">Larghezza esterna (mm)</Label>
+                      <Input id="packaging-width" type="number" step="1" {...register('outerWidthMm')} />
+                      {errors.outerWidthMm && (
+                        <p className="text-sm text-red-600" role="alert">
+                          {errors.outerWidthMm.message}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="packaging-height">Altezza esterna (mm)</Label>
+                      <Input id="packaging-height" type="number" step="1" {...register('outerHeightMm')} />
+                      {errors.outerHeightMm && (
+                        <p className="text-sm text-red-600" role="alert">
+                          {errors.outerHeightMm.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>

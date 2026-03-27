@@ -136,6 +136,27 @@ ProcessedProduct constraints notes:
 - `POST /packagings/:id/restore` (`ADMIN`)
 - `POST /packagings/:id/purge` (`ADMIN`)
 
+Packaging fields:
+
+- `tareKg` (tara in kg)
+- `outerLengthMm` (lunghezza esterna in mm)
+- `outerWidthMm` (larghezza esterna in mm)
+- `outerHeightMm` (altezza esterna in mm)
+
+Esempio payload `POST /packagings`:
+
+```json
+{
+  "code": "IFCO6410",
+  "name": "IFCO 6410",
+  "description": "Cassa plastica standard",
+  "tareKg": 0.35,
+  "outerLengthMm": 600,
+  "outerWidthMm": 400,
+  "outerHeightMm": 120
+}
+```
+
 ## Pallets
 
 - `POST /pallets` (`ADMIN`)
@@ -197,6 +218,11 @@ Regola di scope per unicita codice:
 
 - `products`, `processed-products`, `packagings`: scope globale
 - `product-subtypes`, `varieties`: scope per `productId`
+
+## Units Policy
+
+- dimensioni: `mm` (interi)
+- pesi: `kg` (massimo 3 decimali)
 
 ## Restore/Purge status codes
 

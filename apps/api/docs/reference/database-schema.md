@@ -20,6 +20,7 @@ Questo documento descrive lo stato reale corrente del backend. PostgreSQL non e 
 - `ProcessedProductAllowedSubtype`
 - `ProcessedProductAllowedVariety`
 - `Packaging`
+  - campi: `tareKg`, `outerLengthMm`, `outerWidthMm`, `outerHeightMm`
 - `Pallet` (relazione con `FieldLot`)
 - `PalletItem` (relazione con `Pallet`, `ProcessedProduct`, `Packaging`)
 - `DailyPalletCounter`

@@ -82,3 +82,4 @@ Nota pratica:
 
 - filtri multipli usano formato CSV (`entities`, `userIds`, `operations`)
 - per UI amministrativa sono esposti anche `username` e `userDisplayName` oltre a `userId`
+- se usi date in formato `YYYY-MM-DD`, il backend interpreta `endDate` come fine giornata (inclusiva)

@@ -2,7 +2,15 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, ExternalLink } from 'lucide-react';
 import { Pagination } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -91,6 +99,76 @@ function parseCsvParam(value: string | null): string[] {
     .filter(Boolean);
 }
 
+type MultiSelectOption = {
+  value: string;
+  label: string;
+};
+
+function MultiSelectDropdown({
+  id,
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  options: MultiSelectOption[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const allValues = options.map((option) => option.value);
+  const allSelected = allValues.length > 0 && selected.length === allValues.length;
+
+  const triggerText = allSelected
+    ? 'Tutti'
+    : selected.length === 0
+      ? 'Tutti'
+      : `${selected.length} selezionati`;
+
+  const toggleItem = (value: string) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter((item) => item !== value));
+      return;
+    }
+
+    onChange([...selected, value]);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button id={id} type="button" variant="outline" className="w-full justify-between">
+            <span className="truncate">{triggerText}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-72">
+          <DropdownMenuCheckboxItem
+            checked={allSelected}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={() => onChange(allSelected ? [] : allValues)}
+          >
+            Tutti
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          {options.map((option) => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={selected.includes(option.value)}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={() => toggleItem(option.value)}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export function AuditPage() {
   const { preferences } = useAuth();
   const { data: usersData } = useUsers({ page: 1, limit: 100 });
@@ -100,6 +178,7 @@ export function AuditPage() {
   const [timePreset, setTimePreset] = useState<TimePreset>(
     (initialSearch.get('preset') as TimePreset) || 'last7d',
   );
+  const initialRange = deriveDateRange((initialSearch.get('preset') as TimePreset) || 'last7d');
 
   const [filters, setFilters] = useState<AuditFilters>({
     page: Number(initialSearch.get('page') || '1'),
@@ -108,8 +187,8 @@ export function AuditPage() {
     operations: parseCsvParam(initialSearch.get('operations')) as AuditOperation[],
     entities: parseCsvParam(initialSearch.get('entities')),
     userIds: parseCsvParam(initialSearch.get('userIds')),
-    startDate: initialSearch.get('startDate') || '',
-    endDate: initialSearch.get('endDate') || '',
+    startDate: initialSearch.get('startDate') || initialRange.startDate || '',
+    endDate: initialSearch.get('endDate') || initialRange.endDate || '',
     sort: (initialSearch.get('sort') as 'timestamp_desc' | 'timestamp_asc') || 'timestamp_desc',
   });
 
@@ -211,132 +290,90 @@ export function AuditPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="audit-sort">Ordinamento timestamp</Label>
-          <select
-            id="audit-sort"
-            value={filters.sort || 'timestamp_desc'}
-            onChange={(e) =>
-              setFilters((prev) => ({
-                ...prev,
-                sort: e.target.value as 'timestamp_desc' | 'timestamp_asc',
-                page: 1,
-              }))
-            }
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="timestamp_desc">Piu recenti</option>
-            <option value="timestamp_asc">Piu vecchi</option>
-          </select>
+          <Label htmlFor="audit-start-date">Data inizio</Label>
+          <Input
+            id="audit-start-date"
+            type="date"
+            value={filters.startDate || ''}
+            disabled={timePreset !== 'custom'}
+            onChange={(e) => setFilters((prev) => ({ ...prev, startDate: e.target.value, page: 1 }))}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="audit-end-date">Data fine</Label>
+          <Input
+            id="audit-end-date"
+            type="date"
+            value={filters.endDate || ''}
+            disabled={timePreset !== 'custom'}
+            onChange={(e) => setFilters((prev) => ({ ...prev, endDate: e.target.value, page: 1 }))}
+          />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="audit-entity-id">Entity ID</Label>
-          <input
+          <Input
             id="audit-entity-id"
             value={filters.entityId || ''}
             onChange={(e) => setFilters((prev) => ({ ...prev, entityId: e.target.value, page: 1 }))}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             placeholder="Filtra per ID risorsa"
           />
         </div>
 
-        {timePreset === 'custom' && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="audit-start-date">Data inizio</Label>
-              <input
-                id="audit-start-date"
-                type="date"
-                value={filters.startDate || ''}
-                onChange={(e) => setFilters((prev) => ({ ...prev, startDate: e.target.value, page: 1 }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="audit-end-date">Data fine</Label>
-              <input
-                id="audit-end-date"
-                type="date"
-                value={filters.endDate || ''}
-                onChange={(e) => setFilters((prev) => ({ ...prev, endDate: e.target.value, page: 1 }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-          </>
-        )}
+        <MultiSelectDropdown
+          id="audit-operations"
+          label="Operazioni"
+          options={operationOptions.map((operation) => ({
+            value: operation.value,
+            label: operation.label,
+          }))}
+          selected={filters.operations || []}
+          onChange={(values) => handleMultiSelect('operations', values)}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="audit-operations">Operazioni (multi)</Label>
-          <select
-            id="audit-operations"
-            multiple
-            value={filters.operations || []}
-            onChange={(e) =>
-              handleMultiSelect(
-                'operations',
-                Array.from(e.target.selectedOptions).map((option) => option.value),
-              )
-            }
-            className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            {operationOptions.map((operation) => (
-              <option key={operation.value} value={operation.value}>
-                {operation.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <MultiSelectDropdown
+          id="audit-entities"
+          label="Entità"
+          options={entityOptions.map((entity) => ({ value: entity, label: entity }))}
+          selected={filters.entities || []}
+          onChange={(values) => handleMultiSelect('entities', values)}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="audit-entities">Entità (multi)</Label>
-          <select
-            id="audit-entities"
-            multiple
-            value={filters.entities || []}
-            onChange={(e) =>
-              handleMultiSelect(
-                'entities',
-                Array.from(e.target.selectedOptions).map((option) => option.value),
-              )
-            }
-            className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            {entityOptions.map((entity) => (
-              <option key={entity} value={entity}>
-                {entity}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="audit-users">Utenti (multi)</Label>
-          <select
-            id="audit-users"
-            multiple
-            value={filters.userIds || []}
-            onChange={(e) =>
-              handleMultiSelect(
-                'userIds',
-                Array.from(e.target.selectedOptions).map((option) => option.value),
-              )
-            }
-            className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            {userOptions.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.firstName} {user.surname} ({user.username})
-              </option>
-            ))}
-          </select>
-        </div>
+        <MultiSelectDropdown
+          id="audit-users"
+          label="Utenti"
+          options={userOptions.map((user) => ({
+            value: user.id,
+            label: `${user.firstName} ${user.surname} (${user.username})`,
+          }))}
+          selected={filters.userIds || []}
+          onChange={(values) => handleMultiSelect('userIds', values)}
+        />
       </div>
 
       <div className="border rounded-md" role="region" aria-label="Tabella audit log">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Timestamp</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 text-left"
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      sort: prev.sort === 'timestamp_desc' ? 'timestamp_asc' : 'timestamp_desc',
+                      page: 1,
+                    }))
+                  }
+                >
+                  Timestamp
+                  <span className="text-xs text-foreground-muted">
+                    {filters.sort === 'timestamp_asc' ? 'asc' : 'desc'}
+                  </span>
+                </button>
+              </TableHead>
               <TableHead>Operazione</TableHead>
               <TableHead>Entità</TableHead>
               <TableHead>Risorsa</TableHead>
@@ -360,7 +397,10 @@ export function AuditPage() {
             ) : (
               data?.data.map((item) => (
                 <Fragment key={item.id}>
-                  <TableRow>
+                  <TableRow
+                    className="cursor-pointer"
+                    onClick={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
+                  >
                     <TableCell>{new Date(item.timestamp).toLocaleString('it-IT')}</TableCell>
                     <TableCell>
                       <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getOperationColor(item.operation)}`}>
@@ -375,15 +415,11 @@ export function AuditPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
-                        >
-                          {expandedId === item.id ? 'Nascondi' : 'Dettaglio'}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
                           disabled={!entityRouteMap[item.entity]}
-                          onClick={() => openEntityRoute(item)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEntityRoute(item);
+                          }}
                         >
                           <ExternalLink className="w-4 h-4 mr-1" />
                           Apri risorsa

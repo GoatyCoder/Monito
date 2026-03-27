@@ -126,6 +126,10 @@ Filtri audit disponibili su `GET /audit`:
 - range temporale: `startDate`, `endDate`
 - ordinamento: `sort=timestamp_desc|timestamp_asc`
 
+Comportamento date:
+
+- se `startDate`/`endDate` sono passate come `YYYY-MM-DD`, il backend applica automaticamente inizio/fine giornata (`00:00:00.000` / `23:59:59.999`)
+
 Nota: nelle risposte audit sono inclusi anche `username` e `userDisplayName` per una UI più leggibile, mantenendo `userId` come riferimento tecnico.
 
 ## Endpoint lookup non paginati

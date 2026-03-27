@@ -36,8 +36,8 @@ export class AuditController {
       userIds: this.parseCsv(query.userIds),
       operation: query.operation,
       operations: this.parseCsv(query.operations),
-      startDate: query.startDate ? new Date(query.startDate) : undefined,
-      endDate: query.endDate ? new Date(query.endDate) : undefined,
+      startDate: this.parseStartDate(query.startDate),
+      endDate: this.parseEndDate(query.endDate),
       sort: query.sort,
       page: query.page,
       limit: query.limit,
@@ -56,8 +56,8 @@ export class AuditController {
   ): Promise<PaginatedResponse<AuditLogResponseDto>> {
     return this.auditService.findAll({
       entity,
-      startDate: query.startDate ? new Date(query.startDate) : undefined,
-      endDate: query.endDate ? new Date(query.endDate) : undefined,
+      startDate: this.parseStartDate(query.startDate),
+      endDate: this.parseEndDate(query.endDate),
       sort: query.sort,
       page: query.page,
       limit: query.limit,
@@ -79,8 +79,8 @@ export class AuditController {
     return this.auditService.findAll({
       entity,
       entityId,
-      startDate: query.startDate ? new Date(query.startDate) : undefined,
-      endDate: query.endDate ? new Date(query.endDate) : undefined,
+      startDate: this.parseStartDate(query.startDate),
+      endDate: this.parseEndDate(query.endDate),
       sort: query.sort,
       page: query.page,
       limit: query.limit,
@@ -99,8 +99,8 @@ export class AuditController {
   ): Promise<PaginatedResponse<AuditLogResponseDto>> {
     return this.auditService.findAll({
       userId,
-      startDate: query.startDate ? new Date(query.startDate) : undefined,
-      endDate: query.endDate ? new Date(query.endDate) : undefined,
+      startDate: this.parseStartDate(query.startDate),
+      endDate: this.parseEndDate(query.endDate),
       sort: query.sort,
       page: query.page,
       limit: query.limit,
@@ -115,5 +115,25 @@ export class AuditController {
       .filter(Boolean);
 
     return parsed.length > 0 ? parsed : undefined;
+  }
+
+  private parseStartDate(value?: string): Date | undefined {
+    if (!value) return undefined;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(`${value}T00:00:00.000`);
+    }
+
+    return new Date(value);
+  }
+
+  private parseEndDate(value?: string): Date | undefined {
+    if (!value) return undefined;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(`${value}T23:59:59.999`);
+    }
+
+    return new Date(value);
   }
 }

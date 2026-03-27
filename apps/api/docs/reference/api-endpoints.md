@@ -128,6 +128,10 @@ Query principali su `GET /audit`:
 - temporali: `startDate`, `endDate`
 - ordinamento: `sort=timestamp_desc|timestamp_asc`
 
+Nota date:
+
+- con formato `YYYY-MM-DD`, `startDate` viene interpretata a inizio giornata e `endDate` a fine giornata
+
 Operazioni audit supportate:
 
 - `CREATE`, `UPDATE`, `SOFT_DELETE`, `RESTORE`, `HARD_DELETE`

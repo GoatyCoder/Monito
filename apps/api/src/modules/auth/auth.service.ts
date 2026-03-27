@@ -18,6 +18,8 @@ import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RecentUserHintDto } from './dto/recent-user-hints.dto';
+import { VerifyPasswordDto } from './dto/verify-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 
@@ -36,6 +38,7 @@ interface AuthUserProfile {
   avatarColor?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  lastLoginAt?: Date | null;
 }
 
 interface AuditRequestMeta {
@@ -82,7 +85,7 @@ export class AuthService {
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('User not found');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
@@ -96,7 +99,7 @@ export class AuthService {
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Invalid password');
     }
 
     if (!user.isActive) {
@@ -111,6 +114,15 @@ export class AuthService {
       });
       throw new ForbiddenException('User account is disabled');
     }
+
+    const loggedInAt = new Date();
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: loggedInAt,
+      },
+    });
 
     this.auditQueue.push({
       userId: user.id,
@@ -133,6 +145,7 @@ export class AuthService {
       avatarColor: user.avatarColor,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      lastLoginAt: loggedInAt,
     });
   }
 
@@ -157,6 +170,7 @@ export class AuthService {
         avatarColor: true,
         createdAt: true,
         updatedAt: true,
+        lastLoginAt: true,
       },
     });
 
@@ -234,6 +248,61 @@ export class AuthService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+  }
+
+  async verifyPassword(userId: string, dto: VerifyPasswordDto): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        password: true,
+        isActive: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new ForbiddenException('User account is disabled');
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid password');
+    }
+  }
+
+  async getRecentUserHints(userIds: string[]): Promise<RecentUserHintDto[]> {
+    if (userIds.length === 0) return [];
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+      },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        surname: true,
+        avatarColor: true,
+        isActive: true,
+      },
+    });
+
+    const byId = new Map(users.map((user) => [user.id, user]));
+    return userIds
+      .map((id) => byId.get(id))
+      .filter((user): user is NonNullable<typeof user> => !!user)
+      .map((user) => ({
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        surname: user.surname,
+        avatarColor: user.avatarColor ? user.avatarColor.toLowerCase() : undefined,
+        isActive: user.isActive,
+      }));
   }
 
   private async issueTokens(user: AuthUserProfile): Promise<AuthResponseDto> {

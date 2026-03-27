@@ -83,3 +83,31 @@ Nota pratica:
 - filtri multipli usano formato CSV (`entities`, `userIds`, `operations`)
 - per UI amministrativa sono esposti anche `username` e `userDisplayName` oltre a `userId`
 - se usi date in formato `YYYY-MM-DD`, il backend interpreta `endDate` come fine giornata (inclusiva)
+
+## Gestire postazioni condivise (login rapido + lock screen)
+
+Flusso consigliato per postazioni usate da piu operatori:
+
+1. La login UI invia fino a 5 ID locali a `POST /auth/recent-users/hints`.
+2. Il backend restituisce solo utenti esistenti e non eliminati con hint minimi (`id`, `username`, `firstName`, `surname`, `avatarColor`, `isActive`).
+3. Al login riuscito (`POST /auth/login`) viene aggiornato `lastLoginAt` dell'utente.
+4. In caso di inattivita, la UI puo bloccare la schermata e validare password via `POST /auth/verify-password` (utente autenticato).
+
+Body di esempio:
+
+```json
+{ "userIds": ["cma1...", "cma2..."] }
+```
+
+```json
+{ "password": "secret123" }
+```
+
+Note operative:
+
+- `recent-users/hints` e pubblico ma accetta massimo 5 ID (oltre ritorna 400)
+- `verify-password` richiede JWT valido e ritorna `204 No Content` su successo
+- per account disattivati login/verify ritornano errore (`403`)
+- lock screen e timeout sono preferenze utente (`lockScreenEnabled`, `lockScreenTimeoutMinutes`, range 1-120)
+- lato frontend il lock resta attivo anche dopo refresh tab ed e sincronizzato tra tab browser
+- il timeout lock viene contato solo quando la web app e in primo piano (focus/visibility)

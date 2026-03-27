@@ -11,6 +11,8 @@ import type { UserPreferences } from '@monito/types';
 const DEFAULT_SETTINGS: UserPreferences = {
   masterDataPageSize: 20,
   auditLogPageSize: 20,
+  lockScreenEnabled: true,
+  lockScreenTimeoutMinutes: 5,
 };
 
 export function SettingsPage() {
@@ -19,11 +21,17 @@ export function SettingsPage() {
   const hasChanges = useMemo(
     () =>
       settings.masterDataPageSize !== preferences.masterDataPageSize ||
-      settings.auditLogPageSize !== preferences.auditLogPageSize,
+      settings.auditLogPageSize !== preferences.auditLogPageSize ||
+      settings.lockScreenEnabled !== preferences.lockScreenEnabled ||
+      settings.lockScreenTimeoutMinutes !== preferences.lockScreenTimeoutMinutes,
     [
       preferences.auditLogPageSize,
+      preferences.lockScreenEnabled,
+      preferences.lockScreenTimeoutMinutes,
       preferences.masterDataPageSize,
       settings.auditLogPageSize,
+      settings.lockScreenEnabled,
+      settings.lockScreenTimeoutMinutes,
       settings.masterDataPageSize,
     ],
   );
@@ -36,6 +44,8 @@ export function SettingsPage() {
     await api.patch('/users/me/preferences', {
       masterDataPageSize: settings.masterDataPageSize,
       auditLogPageSize: settings.auditLogPageSize,
+      lockScreenEnabled: settings.lockScreenEnabled,
+      lockScreenTimeoutMinutes: settings.lockScreenTimeoutMinutes,
     });
     await refreshPreferences();
     showSuccess('Impostazioni salvate');
@@ -45,6 +55,8 @@ export function SettingsPage() {
     await api.patch('/users/me/preferences', {
       masterDataPageSize: DEFAULT_SETTINGS.masterDataPageSize,
       auditLogPageSize: DEFAULT_SETTINGS.auditLogPageSize,
+      lockScreenEnabled: DEFAULT_SETTINGS.lockScreenEnabled,
+      lockScreenTimeoutMinutes: DEFAULT_SETTINGS.lockScreenTimeoutMinutes,
     });
     setSettings(DEFAULT_SETTINGS);
     await refreshPreferences();
@@ -108,6 +120,49 @@ export function SettingsPage() {
         </div>
       </section>
 
+      <section className="rounded-md border border-border bg-surface p-4 space-y-4" aria-label="Sicurezza sessione">
+        <h2 className="text-lg font-semibold text-foreground">Sicurezza sessione</h2>
+
+        <label className="flex items-center gap-3 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={settings.lockScreenEnabled}
+            onChange={(e) =>
+              setSettings((prev) => ({
+                ...prev,
+                lockScreenEnabled: e.target.checked,
+              }))
+            }
+            className="h-4 w-4 rounded border-border"
+          />
+          Blocca la schermata per inattivita
+        </label>
+
+        <div className="space-y-2">
+          <Label htmlFor="settings-lock-timeout">Timeout lock screen (minuti)</Label>
+          <select
+            id="settings-lock-timeout"
+            value={settings.lockScreenTimeoutMinutes}
+            disabled={!settings.lockScreenEnabled}
+            onChange={(e) =>
+              setSettings((prev) => ({
+                ...prev,
+                lockScreenTimeoutMinutes: Number(e.target.value),
+              }))
+            }
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value={1}>1 minuto</option>
+            <option value={2}>2 minuti</option>
+            <option value={5}>5 minuti</option>
+            <option value={10}>10 minuti</option>
+            <option value={15}>15 minuti</option>
+            <option value={30}>30 minuti</option>
+            <option value={60}>60 minuti</option>
+          </select>
+        </div>
+      </section>
+
       <section className="rounded-md border border-border bg-surface p-4 space-y-3" aria-label="Navigazione account">
         <h2 className="text-lg font-semibold text-foreground">Account</h2>
         <div className="flex flex-wrap items-center gap-2">
@@ -118,16 +173,6 @@ export function SettingsPage() {
             </Button>
           </Link>
         </div>
-      </section>
-
-      <section className="rounded-md border border-border bg-surface p-4 space-y-3" aria-label="Idee impostazioni future">
-        <h2 className="text-lg font-semibold text-foreground">Possibili impostazioni future</h2>
-        <ul className="list-disc list-inside space-y-1 text-sm text-foreground-muted">
-          <li>Ordinamento predefinito per ciascuna anagrafica</li>
-          <li>Scelta landing page dopo login</li>
-          <li>Preferenze notifiche (toast piu o meno verbosi)</li>
-          <li>Preferenze accessibilita avanzate (dimensione font, riduzione movimento)</li>
-        </ul>
       </section>
 
       <div className="flex items-center gap-2">

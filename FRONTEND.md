@@ -28,9 +28,13 @@ Linee guida tecniche complete per lo sviluppo del frontend Monito.
 apps/web/
 ├── src/
 │   ├── components/
+│   │   ├── auth/                  # Building blocks auth UI
+│   │   │   ├── brand-header.tsx
+│   │   │   └── user-identity-card.tsx
 │   │   ├── ui/                    # Componenti shadcn/ui riutilizzabili
 │   │   │   ├── button.tsx
 │   │   │   ├── input.tsx
+│   │   │   ├── password-input.tsx # Input password con toggle mostra/nascondi
 │   │   │   ├── dialog.tsx
 │   │   │   ├── table.tsx
 │   │   │   ├── avatar.tsx
@@ -49,6 +53,8 @@ apps/web/
 │   │   └── use-*.ts
 │   ├── lib/                       # Utility
 │   │   ├── api.ts                 # Axios client con interceptors
+│   │   ├── token-storage.ts       # access/refresh token in sessionStorage
+│   │   ├── recent-users.ts        # recent users locali per login rapido
 │   │   ├── utils.ts               # cn() utility
 │   │   └── toast.ts               # showSuccess, showError, showInfo
 │   ├── pages/                     # Page components
@@ -309,9 +315,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carica utente da token JWT
+  // Carica utente da token JWT (sessione browser corrente)
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (token) {
       api.get<{ data: User }>('/users/me')
         .then((res) => setUser(res.data.data))
@@ -325,8 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (data: LoginRequest) => {
     const response = await api.post<{ data: LoginResponse }>('/auth/login', data);
     const { accessToken, refreshToken, user: userData } = response.data.data;
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    setTokens(accessToken, refreshToken);
     setUser(userData);
   };
 
@@ -349,7 +354,7 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -364,6 +369,27 @@ api.interceptors.response.use(
   }
 );
 ```
+
+### Postazioni condivise e lock screen
+
+- I token auth sono in `sessionStorage` (non in `localStorage`): la sessione termina alla chiusura tab/browser.
+- Alla prima lettura token viene fatta migrazione trasparente legacy `localStorage -> sessionStorage`.
+- La login salva solo hint minimi locali (`userId`, `lastUsedAt`, max 5) in `localStorage` via `recent-users.ts`.
+- Il dettaglio utente recente (username, nome/cognome, avatar, stato) viene risolto da backend con `POST /auth/recent-users/hints`.
+- Se un utente recente non esiste piu o e disattivato, la UI aggiorna/rimuove la card localmente.
+- Errori login mostrati in modo esplicito: utente non trovato, password errata, account disattivato.
+- In `AppLayout` e presente lock screen per inattivita: `mousemove`, `keydown`, `click`, `touchstart` riarmano il timer.
+- Il timeout lock screen e focus-aware: conta solo quando Monito e in primo piano (`focus` + `visibilityState=visible`).
+- Stato lock persistito su refresh tab e sincronizzato tra tab (`BroadcastChannel` + evento `storage`).
+- Sblocco con `POST /auth/verify-password`; alternativa operativa: `Cambia operatore` (logout + redirect login).
+- Login e lock screen condividono gli stessi building block visuali (`BrandHeader`, `UserIdentityCard`) per mantenere stile coerente.
+- Timeout e toggle lock screen sono preferenze utente persistite via `PATCH /users/me/preferences`.
+
+### Password visibility toggle
+
+- Usare `PasswordInput` (non `Input type="password"`) nei form in cui si inseriscono password.
+- Supporta toggle mostra/nascondi con label accessibili (`Mostra password` / `Nascondi password`).
+- Applicato in login, lock screen, cambio password obbligatorio e cambio password profilo.
 
 ---
 

@@ -37,6 +37,8 @@ describe('AuthService', () => {
   const prisma = {
     user: {
       findUnique: jest.fn(),
+      update: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
@@ -132,7 +134,7 @@ describe('AuthService', () => {
       expect(result).toEqual({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-        user: {
+        user: expect.objectContaining({
           id: mockUser.id,
           username: mockUser.username,
           firstName: mockUser.firstName,
@@ -143,7 +145,8 @@ describe('AuthService', () => {
           avatarColor: 'orange',
           createdAt: mockUser.createdAt,
           updatedAt: mockUser.updatedAt,
-        },
+          lastLoginAt: expect.any(Date),
+        }),
       });
     });
 

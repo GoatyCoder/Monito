@@ -157,19 +157,20 @@ export function UsersPage() {
               <TableHead>Cognome</TableHead>
               <TableHead>Ruolo</TableHead>
               <TableHead>Stato</TableHead>
+              <TableHead>Ultimo accesso</TableHead>
               <TableHead className="text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-foreground-muted py-8">
+                <TableCell colSpan={7} className="text-center text-foreground-muted py-8">
                   Caricamento...
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-foreground-muted py-8">
+                <TableCell colSpan={7} className="text-center text-foreground-muted py-8">
                   Nessun utente trovato
                 </TableCell>
               </TableRow>
@@ -184,6 +185,9 @@ export function UsersPage() {
                     <span className={user.isActive ? 'text-green-600' : 'text-red-600'}>
                       {user.isActive ? 'Attivo' : 'Disattivo'}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('it-IT') : '-'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

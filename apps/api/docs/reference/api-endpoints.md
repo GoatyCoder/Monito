@@ -8,6 +8,8 @@ Base path: `/api/v1`
 - `POST /auth/refresh` (public)
 - `POST /auth/logout` (public)
 - `POST /auth/change-password` (authenticated)
+- `POST /auth/verify-password` (authenticated)
+- `POST /auth/recent-users/hints` (public, max 5 userIds)
 
 ## Health
 
@@ -31,9 +33,11 @@ Base path: `/api/v1`
 User account behavior:
 
 - `UserResponse` include `isActive` e `mustChangePassword`
+- `UserResponse` include `lastLoginAt`
 - login rifiutato per account disattivati
 - password temporanea imposta `mustChangePassword=true`
 - `POST /auth/change-password` resetta `mustChangePassword=false` su successo
+- preferenze utente includono lock screen (`lockScreenEnabled`, `lockScreenTimeoutMinutes`)
 
 ## Products
 

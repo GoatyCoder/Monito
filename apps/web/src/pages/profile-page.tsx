@@ -8,6 +8,7 @@ import { AVATAR_COLORS, type AvatarColor } from '@monito/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
@@ -223,9 +224,8 @@ export function ProfilePage() {
 
         <div className="space-y-2">
           <Label htmlFor="profile-current-password">Password attuale</Label>
-          <Input
+          <PasswordInput
             id="profile-current-password"
-            type="password"
             autoComplete="current-password"
             {...registerPassword('currentPassword')}
             aria-describedby={passwordErrors.currentPassword ? 'profile-current-password-error' : undefined}
@@ -239,9 +239,8 @@ export function ProfilePage() {
 
         <div className="space-y-2">
           <Label htmlFor="profile-new-password">Nuova password</Label>
-          <Input
+          <PasswordInput
             id="profile-new-password"
-            type="password"
             autoComplete="new-password"
             {...registerPassword('newPassword')}
             aria-describedby={passwordErrors.newPassword ? 'profile-new-password-error' : undefined}
@@ -255,9 +254,8 @@ export function ProfilePage() {
 
         <div className="space-y-2">
           <Label htmlFor="profile-confirm-password">Conferma nuova password</Label>
-          <Input
+          <PasswordInput
             id="profile-confirm-password"
-            type="password"
             autoComplete="new-password"
             {...registerPassword('confirmPassword')}
             aria-describedby={passwordErrors.confirmPassword ? 'profile-confirm-password-error' : undefined}

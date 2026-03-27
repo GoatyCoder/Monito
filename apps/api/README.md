@@ -110,6 +110,12 @@ Cambio password utente autenticato:
 
 - `POST /auth/change-password` con body `{ currentPassword, newPassword }`
 - al primo accesso con password temporanea, il flag `mustChangePassword` forza il cambio password
+- `POST /auth/verify-password` per verificare password in flussi lock-screen
+
+Login rapido postazioni condivise:
+
+- `POST /auth/recent-users/hints` accetta fino a 5 `userIds` e restituisce hint utente aggiornati (username/nome/cognome/avatar/stato)
+- lato backend viene aggiornato `lastLoginAt` a ogni `LOGIN_SUCCESS`
 
 ## Audit log operativo
 

@@ -18,6 +18,7 @@ model User {
   mustChangePassword Boolean @default(false)
   avatarColor AvatarColor? @default(BLUE)
   preferences UserPreferences?
+  lastLoginAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -30,6 +31,8 @@ model UserPreferences {
   userId           String   @unique
   masterDataPageSize Int    @default(20)
   auditLogPageSize Int      @default(20)
+  lockScreenEnabled Boolean @default(true)
+  lockScreenTimeoutMinutes Int @default(5)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

@@ -23,6 +23,7 @@ describe('UsersService', () => {
     role: Role.USER,
     isActive: true,
     mustChangePassword: false,
+    lastLoginAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -103,6 +104,7 @@ describe('UsersService', () => {
           avatarColor: undefined,
           createdAt: mockUser.createdAt,
           updatedAt: mockUser.updatedAt,
+          lastLoginAt: null,
         },
         temporaryPassword: expect.any(String),
       });

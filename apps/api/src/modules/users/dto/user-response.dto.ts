@@ -33,4 +33,7 @@ export class UserResponseDto {
 
   @ApiPropertyOptional()
   updatedAt?: Date;
+
+  @ApiPropertyOptional()
+  lastLoginAt?: Date | null;
 }

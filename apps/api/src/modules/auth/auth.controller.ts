@@ -4,11 +4,20 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
+  ApiForbiddenResponse,
   ApiUnauthorizedResponse,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RefreshTokenDto, AuthResponseDto, ChangePasswordDto } from './dto';
+import {
+  LoginDto,
+  RefreshTokenDto,
+  AuthResponseDto,
+  ChangePasswordDto,
+  VerifyPasswordDto,
+  RecentUserHintsRequestDto,
+  RecentUserHintDto,
+} from './dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -43,6 +52,15 @@ export class AuthController {
   }
 
   @Public()
+  @Post('recent-users/hints')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get recent user hints by IDs for login UI' })
+  @ApiResponse({ status: 200, description: 'Recent users hints', type: [RecentUserHintDto] })
+  async recentUserHints(@Body() dto: RecentUserHintsRequestDto): Promise<RecentUserHintDto[]> {
+    return this.authService.getRecentUserHints(dto.userIds);
+  }
+
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'User logout' })
@@ -69,5 +87,19 @@ export class AuthController {
       ipAddress: req.ip,
       userAgent: req.get('user-agent') || undefined,
     });
+  }
+
+  @Post('verify-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Verify current user password without changing it' })
+  @ApiNoContentResponse({ description: 'Password verified' })
+  @ApiUnauthorizedResponse({ description: 'Invalid password' })
+  @ApiForbiddenResponse({ description: 'User disabled' })
+  async verifyPassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: VerifyPasswordDto,
+  ): Promise<void> {
+    await this.authService.verifyPassword(user.sub, dto);
   }
 }

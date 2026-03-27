@@ -131,6 +131,9 @@ export class UsersService {
       data: {
         masterDataPageSize: dto.masterDataPageSize ?? current.masterDataPageSize,
         auditLogPageSize: dto.auditLogPageSize ?? current.auditLogPageSize,
+        lockScreenEnabled: dto.lockScreenEnabled ?? current.lockScreenEnabled,
+        lockScreenTimeoutMinutes:
+          dto.lockScreenTimeoutMinutes ?? current.lockScreenTimeoutMinutes,
       },
     });
 
@@ -142,10 +145,14 @@ export class UsersService {
       oldValue: {
         masterDataPageSize: current.masterDataPageSize,
         auditLogPageSize: current.auditLogPageSize,
+        lockScreenEnabled: current.lockScreenEnabled,
+        lockScreenTimeoutMinutes: current.lockScreenTimeoutMinutes,
       },
       newValue: {
         masterDataPageSize: updated.masterDataPageSize,
         auditLogPageSize: updated.auditLogPageSize,
+        lockScreenEnabled: updated.lockScreenEnabled,
+        lockScreenTimeoutMinutes: updated.lockScreenTimeoutMinutes,
       },
     });
 
@@ -391,6 +398,8 @@ export class UsersService {
         userId: id,
         masterDataPageSize: 20,
         auditLogPageSize: 20,
+        lockScreenEnabled: true,
+        lockScreenTimeoutMinutes: 5,
       },
     });
   }
@@ -398,10 +407,14 @@ export class UsersService {
   private toPreferencesResponse(preferences: {
     masterDataPageSize: number;
     auditLogPageSize: number;
+    lockScreenEnabled: boolean;
+    lockScreenTimeoutMinutes: number;
   }): UserPreferencesResponseDto {
     return {
       masterDataPageSize: preferences.masterDataPageSize as 10 | 20 | 50 | 100,
       auditLogPageSize: preferences.auditLogPageSize as 10 | 20 | 50 | 100,
+      lockScreenEnabled: preferences.lockScreenEnabled,
+      lockScreenTimeoutMinutes: preferences.lockScreenTimeoutMinutes,
     };
   }
 
@@ -416,6 +429,7 @@ export class UsersService {
     mustChangePassword: boolean;
     createdAt: Date;
     updatedAt?: Date;
+    lastLoginAt?: Date | null;
   }) {
     return {
       id: user.id,
@@ -428,6 +442,7 @@ export class UsersService {
       avatarColor: user.avatarColor ? user.avatarColor.toLowerCase() : undefined,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      lastLoginAt: user.lastLoginAt ?? null,
     };
   }
 

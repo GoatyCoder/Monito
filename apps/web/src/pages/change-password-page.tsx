@@ -4,8 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { api } from '@/lib/api';
 import { showError, showSuccess } from '@/lib/toast';
 import { useAuth } from '@/contexts/auth-context';
@@ -63,7 +63,7 @@ export function ChangePasswordPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="current-password">Password attuale</Label>
-          <Input id="current-password" type="password" {...register('currentPassword')} />
+          <PasswordInput id="current-password" autoComplete="current-password" {...register('currentPassword')} />
           {errors.currentPassword && (
             <p className="text-sm text-red-600" role="alert">
               {errors.currentPassword.message}
@@ -72,7 +72,7 @@ export function ChangePasswordPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="new-password">Nuova password</Label>
-          <Input id="new-password" type="password" {...register('newPassword')} />
+          <PasswordInput id="new-password" autoComplete="new-password" {...register('newPassword')} />
           {errors.newPassword && (
             <p className="text-sm text-red-600" role="alert">
               {errors.newPassword.message}
@@ -81,7 +81,7 @@ export function ChangePasswordPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirm-password">Conferma nuova password</Label>
-          <Input id="confirm-password" type="password" {...register('confirmPassword')} />
+          <PasswordInput id="confirm-password" autoComplete="new-password" {...register('confirmPassword')} />
           {errors.confirmPassword && (
             <p className="text-sm text-red-600" role="alert">
               {errors.confirmPassword.message}

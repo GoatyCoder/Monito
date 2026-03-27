@@ -19,4 +19,14 @@ export class UpdateVarietyDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  productSubtypeId?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  productId?: string;
 }

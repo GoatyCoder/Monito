@@ -3,6 +3,7 @@ import { Link, useLocation } from '@tanstack/react-router';
 import {
   LayoutDashboard,
   Package,
+  ListFilter,
   Leaf,
   Box,
   PackageCheck,
@@ -58,6 +59,7 @@ export function Sidebar({ className }: SidebarProps) {
       icon: Package,
       children: [
         { title: 'Prodotti', href: '/products', icon: Package },
+        { title: 'Sottotipologie', href: '/product-subtypes', icon: ListFilter },
         { title: 'Varietà', href: '/varieties', icon: Leaf },
         { title: 'Imballaggi', href: '/packagings', icon: Box },
         { title: 'Lavorati', href: '/processed-products', icon: PackageCheck },

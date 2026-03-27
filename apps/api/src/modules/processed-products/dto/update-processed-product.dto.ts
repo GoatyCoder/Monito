@@ -1,5 +1,15 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, Matches, IsNumber, IsPositive, Length } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Length,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateProcessedProductDto {
   @ApiPropertyOptional({ example: 'CEST10X500', maxLength: 14 })
@@ -32,4 +42,25 @@ export class UpdateProcessedProductDto {
   @IsNumber()
   @IsPositive()
   weightPerBoxKg?: number;
+
+  @ApiPropertyOptional({ type: [String], description: 'Allowed product IDs (OR rule with subtype/variety)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  allowedProductIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Allowed product subtype IDs (OR rule with product/variety)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  allowedSubtypeIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Allowed variety IDs (OR rule with product/subtype)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  allowedVarietyIds?: string[];
 }

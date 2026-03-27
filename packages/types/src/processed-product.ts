@@ -5,6 +5,9 @@ export interface ProcessedProduct {
   description?: string;
   ean?: string;
   weightPerBoxKg: number;
+  allowedProductIds?: string[];
+  allowedSubtypeIds?: string[];
+  allowedVarietyIds?: string[];
   createdAt: Date;
   updatedAt?: Date;
   deletedAt?: Date | null;
@@ -16,6 +19,9 @@ export interface CreateProcessedProductDto {
   description?: string;
   ean?: string;
   weightPerBoxKg: number;
+  allowedProductIds?: string[];
+  allowedSubtypeIds?: string[];
+  allowedVarietyIds?: string[];
 }
 
 export interface UpdateProcessedProductDto {
@@ -24,6 +30,9 @@ export interface UpdateProcessedProductDto {
   description?: string;
   ean?: string;
   weightPerBoxKg?: number;
+  allowedProductIds?: string[];
+  allowedSubtypeIds?: string[];
+  allowedVarietyIds?: string[];
 }
 
 export interface ProcessedProductResponseDto {
@@ -33,6 +42,9 @@ export interface ProcessedProductResponseDto {
   description?: string;
   ean?: string;
   weightPerBoxKg: number;
+  allowedProductIds?: string[];
+  allowedSubtypeIds?: string[];
+  allowedVarietyIds?: string[];
   createdAt: Date;
   updatedAt?: Date;
   deletedAt?: Date | null;

@@ -111,3 +111,19 @@ Note operative:
 - lock screen e timeout sono preferenze utente (`lockScreenEnabled`, `lockScreenTimeoutMinutes`, range 1-120)
 - lato frontend il lock resta attivo anche dopo refresh tab ed e sincronizzato tra tab browser
 - il timeout lock viene contato solo quando la web app e in primo piano (focus/visibility)
+
+## Configurare subtype prodotto e vincoli lavorati
+
+Flusso consigliato:
+
+1. Creare/gestire subtype per prodotto (`POST /product-subtypes`, `GET /products/:productId/subtypes/all`).
+2. Assegnare opzionalmente `productSubtypeId` alle varieta.
+3. Configurare i vincoli nel lavorato (`allowedProductIds`, `allowedSubtypeIds`, `allowedVarietyIds`).
+
+Regole da ricordare:
+
+- unicita codice locale per prodotto:
+  - `ProductSubtype`: `@@unique([productId, code])`
+  - `Variety`: `@@unique([productId, code])`
+- `productSubtypeId` in `Variety` deve appartenere allo stesso prodotto
+- in creazione pallet il match e OR globale sui vincoli lavorato

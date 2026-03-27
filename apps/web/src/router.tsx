@@ -1,6 +1,7 @@
 import { createRoute, createRootRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { LoginPage } from '@/pages/login-page';
 import { ProductsPage } from '@/pages/products-page';
+import { ProductSubtypesPage } from '@/pages/product-subtypes-page';
 import { VarietiesPage } from '@/pages/varieties-page';
 import { PackagingsPage } from '@/pages/packagings-page';
 import { ProcessedProductsPage } from '@/pages/processed-products-page';
@@ -47,6 +48,16 @@ const productsRoute = createRoute({
   component: () => (
     <ProtectedRoute>
       <ProductsPage />
+    </ProtectedRoute>
+  ),
+});
+
+const productSubtypesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/product-subtypes',
+  component: () => (
+    <ProtectedRoute>
+      <ProductSubtypesPage />
     </ProtectedRoute>
   ),
 });
@@ -168,6 +179,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   indexRoute,
   productsRoute,
+  productSubtypesRoute,
   varietiesRoute,
   packagingsRoute,
   processedProductsRoute,

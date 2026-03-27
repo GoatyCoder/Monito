@@ -16,6 +16,9 @@ export class VarietyResponseDto {
   @ApiProperty()
   productId: string;
 
+  @ApiPropertyOptional({ nullable: true })
+  productSubtypeId: string | null;
+
   @ApiProperty()
   createdAt: Date;
 

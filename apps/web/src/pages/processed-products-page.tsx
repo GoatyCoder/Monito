@@ -2,7 +2,7 @@ import { useCallback, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Pencil, Plus, RotateCcw, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   useCreateProcessedProduct,
   useDeleteProcessedProduct,
@@ -12,6 +12,9 @@ import {
   useUpdateProcessedProduct,
   type ProcessedProductFilters,
 } from '@/hooks/use-processed-products';
+import { useAllProducts } from '@/hooks/use-products';
+import { useAllProductSubtypes } from '@/hooks/use-product-subtypes';
+import { useAllVarieties } from '@/hooks/use-varieties';
 import { useAuth } from '@/contexts/auth-context';
 import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -48,6 +51,9 @@ const processedProductSchema = z.object({
     .optional()
     .or(z.literal('')),
   weightPerBoxKg: z.coerce.number().positive('Peso richiesto e deve essere > 0'),
+  allowedProductIds: z.array(z.string()).optional(),
+  allowedSubtypeIds: z.array(z.string()).optional(),
+  allowedVarietyIds: z.array(z.string()).optional(),
 });
 
 type ProcessedProductForm = z.infer<typeof processedProductSchema>;
@@ -66,6 +72,10 @@ export function ProcessedProductsPage() {
   });
 
   const { data, isLoading } = useProcessedProducts(filters);
+  const { data: productsData } = useAllProducts();
+  const { data: subtypesData } = useAllProductSubtypes();
+  const { data: varietiesData } = useAllVarieties();
+
   const createProcessedProduct = useCreateProcessedProduct();
   const updateProcessedProduct = useUpdateProcessedProduct();
   const deleteProcessedProduct = useDeleteProcessedProduct();
@@ -76,11 +86,13 @@ export function ProcessedProductsPage() {
   const [editingProcessedProduct, setEditingProcessedProduct] = useState<ProcessedProduct | null>(null);
   const [deletingProcessedProduct, setDeletingProcessedProduct] = useState<ProcessedProduct | null>(null);
   const [purgingProcessedProduct, setPurgingProcessedProduct] = useState<ProcessedProduct | null>(null);
+  const [showConstraints, setShowConstraints] = useState(false);
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ProcessedProductForm>({
     resolver: zodResolver(processedProductSchema),
@@ -116,10 +128,22 @@ export function ProcessedProductsPage() {
         description: processedProduct.description || '',
         ean: processedProduct.ean || '',
         weightPerBoxKg: processedProduct.weightPerBoxKg,
+        allowedProductIds: processedProduct.allowedProductIds || [],
+        allowedSubtypeIds: processedProduct.allowedSubtypeIds || [],
+        allowedVarietyIds: processedProduct.allowedVarietyIds || [],
       });
     } else {
       setEditingProcessedProduct(null);
-      reset({ code: '', name: '', description: '', ean: '', weightPerBoxKg: 0.5 });
+      reset({
+        code: '',
+        name: '',
+        description: '',
+        ean: '',
+        weightPerBoxKg: 0.5,
+        allowedProductIds: [],
+        allowedSubtypeIds: [],
+        allowedVarietyIds: [],
+      });
     }
     setIsDialogOpen(true);
   };
@@ -127,7 +151,16 @@ export function ProcessedProductsPage() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingProcessedProduct(null);
-    reset({ code: '', name: '', description: '', ean: '', weightPerBoxKg: 0.5 });
+    reset({
+      code: '',
+      name: '',
+      description: '',
+      ean: '',
+      weightPerBoxKg: 0.5,
+      allowedProductIds: [],
+      allowedSubtypeIds: [],
+      allowedVarietyIds: [],
+    });
   };
 
   const onSubmit = async (formData: ProcessedProductForm) => {
@@ -346,6 +379,90 @@ export function ProcessedProductsPage() {
               <div className="space-y-2">
                 <Label htmlFor="processed-description">Descrizione</Label>
                 <Input id="processed-description" {...register('description')} />
+              </div>
+
+              <div className="space-y-2 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowConstraints(!showConstraints)}
+                  className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-foreground/80"
+                >
+                  {showConstraints ? (
+                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  Vincoli (opzionali)
+                </button>
+                {showConstraints && (
+                  <>
+                    <p className="text-sm text-foreground-muted">
+                      Seleziona i prodotti, sottotipologie e varietà consentiti per questo lavorato.
+                      Lascia vuoto per consentire tutti.
+                    </p>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="processed-products">Prodotti consentiti</Label>
+                      <select
+                        id="processed-products"
+                        multiple
+                        className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        {...register('allowedProductIds')}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, (option) => option.value);
+                          setValue('allowedProductIds', selected);
+                        }}
+                      >
+                        {(productsData ?? []).map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-foreground-muted">Tieni Ctrl/Cmd per selezionare più prodotti</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="processed-subtypes">Sottotipologie consentite</Label>
+                      <select
+                        id="processed-subtypes"
+                        multiple
+                        className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        {...register('allowedSubtypeIds')}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, (option) => option.value);
+                          setValue('allowedSubtypeIds', selected);
+                        }}
+                      >
+                        {(subtypesData ?? []).map((subtype) => (
+                          <option key={subtype.id} value={subtype.id}>
+                            {subtype.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="processed-varieties">Varietà consentite</Label>
+                      <select
+                        id="processed-varieties"
+                        multiple
+                        className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        {...register('allowedVarietyIds')}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, (option) => option.value);
+                          setValue('allowedVarietyIds', selected);
+                        }}
+                      >
+                        {(varietiesData ?? []).map((variety) => (
+                          <option key={variety.id} value={variety.id}>
+                            {variety.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <DialogFooter>

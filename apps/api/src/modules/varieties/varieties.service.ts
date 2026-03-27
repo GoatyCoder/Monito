@@ -22,24 +22,12 @@ export class VarietiesService {
   ) {}
 
   async create(dto: CreateVarietyDto, userId?: string): Promise<VarietyResponseDto> {
-    const existing = await this.prisma.variety.findFirst({
-      where: {
-        code: dto.code,
-        deletedAt: null,
-      },
-    });
-
-    if (existing) {
-      throw new ConflictException('Variety with this code already exists');
-    }
-
-    const product = await this.prisma.product.findUnique({
-      where: { id: dto.productId, deletedAt: null },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${dto.productId} not found`);
-    }
+    await this.ensureProductExists(dto.productId);
+    await this.ensureVarietyCodeAvailable(dto.productId, dto.code);
+    const productSubtypeId = await this.validateSubtypeBelongsToProduct(
+      dto.productId,
+      dto.productSubtypeId,
+    );
 
     const variety = await this.prisma.variety.create({
       data: {
@@ -47,6 +35,7 @@ export class VarietiesService {
         name: dto.name,
         description: dto.description,
         productId: dto.productId,
+        productSubtypeId,
       },
     });
 
@@ -195,23 +184,34 @@ export class VarietiesService {
       throw new NotFoundException(`Variety with ID ${id} not found`);
     }
 
-    if (dto.code && dto.code !== variety.code) {
-      const existing = await this.prisma.variety.findFirst({
-        where: {
-          code: dto.code,
-          deletedAt: null,
-          NOT: { id },
-        },
-      });
-      if (existing) {
-        throw new ConflictException('Variety with this code already exists');
-      }
+    const nextProductId = dto.productId ?? variety.productId;
+    const isProductChanged = nextProductId !== variety.productId;
+
+    if (isProductChanged) {
+      await this.ensureProductExists(nextProductId);
     }
+
+    const nextCode = dto.code ?? variety.code;
+    if (nextCode !== variety.code || isProductChanged) {
+      await this.ensureVarietyCodeAvailable(nextProductId, nextCode, id);
+    }
+
+    const subtypeInput =
+      dto.productSubtypeId === undefined && isProductChanged ? null : dto.productSubtypeId;
+
+    const productSubtypeId = await this.validateSubtypeBelongsToProduct(
+      nextProductId,
+      subtypeInput,
+    );
 
     const oldValue = this.toResponse(variety);
     const updated = await this.prisma.variety.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        productId: isProductChanged ? nextProductId : undefined,
+        productSubtypeId: subtypeInput === undefined ? undefined : productSubtypeId,
+      },
     });
 
     this.logger.log(`Variety updated: ${id}`);
@@ -277,19 +277,7 @@ export class VarietiesService {
     }
 
     const originalCode = this.extractOriginalCode(variety.code);
-    const activeWithOriginalCode = await this.prisma.variety.findFirst({
-      where: {
-        code: originalCode,
-        deletedAt: null,
-        NOT: { id },
-      },
-    });
-
-    if (activeWithOriginalCode) {
-      throw new ConflictException(
-        `Cannot restore variety with ID ${id}: code ${originalCode} is already used by an active variety`,
-      );
-    }
+    await this.ensureVarietyCodeAvailable(variety.productId, originalCode, id);
 
     const updated = await this.prisma.variety.update({
       where: { id },
@@ -343,17 +331,86 @@ export class VarietiesService {
     });
   }
 
-  private toResponse(variety: { id: string; code: string; name: string; description: string | null; productId: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {
+  private toResponse(variety: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    productId: string;
+    productSubtypeId?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+  }) {
     return {
       id: variety.id,
       code: variety.code,
       name: variety.name,
       description: variety.description,
       productId: variety.productId,
+      productSubtypeId: variety.productSubtypeId ?? null,
       createdAt: variety.createdAt,
       updatedAt: variety.updatedAt,
       deletedAt: variety.deletedAt ?? null,
     };
+  }
+
+  private async ensureProductExists(productId: string): Promise<void> {
+    const product = await this.prisma.product.findUnique({
+      where: {
+        id: productId,
+        deletedAt: null,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+  }
+
+  private async ensureVarietyCodeAvailable(productId: string, code: string, excludeId?: string): Promise<void> {
+    const existing = await this.prisma.variety.findFirst({
+      where: {
+        productId,
+        code,
+        deletedAt: null,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('Variety with this code already exists for the selected product');
+    }
+  }
+
+  private async validateSubtypeBelongsToProduct(
+    productId: string,
+    productSubtypeId?: string | null,
+  ): Promise<string | null | undefined> {
+    if (productSubtypeId === undefined) {
+      return undefined;
+    }
+
+    if (productSubtypeId === null) {
+      return null;
+    }
+
+    const subtype = await this.prisma.productSubtype.findUnique({
+      where: {
+        id: productSubtypeId,
+        deletedAt: null,
+      },
+    });
+
+    if (!subtype) {
+      throw new NotFoundException(`Product subtype with ID ${productSubtypeId} not found`);
+    }
+
+    if (subtype.productId !== productId) {
+      throw new ConflictException('Product subtype does not belong to the selected product');
+    }
+
+    return subtype.id;
   }
 
   private buildSoftDeletedCode(code: string): string {

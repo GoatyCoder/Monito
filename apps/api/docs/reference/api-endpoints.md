@@ -66,6 +66,29 @@ User account behavior:
 - `POST /varieties/:id/purge` (`ADMIN`)
 - `GET /products/:productId/varieties` (`ADMIN`, `OPERATOR`)
 
+Variety notes:
+
+- `code` univoco per `productId` (non globale)
+- `productSubtypeId` opzionale, ma se presente deve appartenere allo stesso prodotto
+
+## Product Subtypes
+
+- `POST /product-subtypes` (`ADMIN`)
+- `GET /product-subtypes` (`ADMIN`, `OPERATOR`) active only
+- `GET /product-subtypes/all` (`ADMIN`, `OPERATOR`) active only, no pagination
+- `GET /product-subtypes/deleted` (`ADMIN`)
+- `GET /product-subtypes/deleted/:id` (`ADMIN`)
+- `GET /product-subtypes/:id` (`ADMIN`, `OPERATOR`)
+- `PATCH /product-subtypes/:id` (`ADMIN`)
+- `DELETE /product-subtypes/:id` (`ADMIN`)
+- `POST /product-subtypes/:id/restore` (`ADMIN`)
+- `POST /product-subtypes/:id/purge` (`ADMIN`)
+- `GET /products/:productId/subtypes/all` (`ADMIN`, `OPERATOR`)
+
+ProductSubtype notes:
+
+- `code` univoco per `productId` (non globale)
+
 ## Field Lots
 
 - `POST /field-lots` (`ADMIN`)
@@ -91,6 +114,14 @@ User account behavior:
 - `DELETE /processed-products/:id` (`ADMIN`)
 - `POST /processed-products/:id/restore` (`ADMIN`)
 - `POST /processed-products/:id/purge` (`ADMIN`)
+
+ProcessedProduct constraints notes:
+
+- supporta vincoli opzionali multipli con OR globale:
+  - `allowedProductIds`
+  - `allowedSubtypeIds`
+  - `allowedVarietyIds`
+- senza vincoli, il lavorato e utilizzabile su qualsiasi prodotto/varieta
 
 ## Packagings
 
@@ -156,11 +187,16 @@ Audit payload response:
 
 ## Code fields policy (domain master data)
 
-Per `products`, `varieties`, `processed-products`, `packagings`:
+Per `products`, `product-subtypes`, `varieties`, `processed-products`, `packagings`:
 
 - input API `code`: max `14` caratteri alfanumerici
 - soft delete: rename automatico in `<code>_del_<timestamp>` con cap finale `32`
 - restore: ripristina il codice originale, ma puo restituire `409` se il codice e gia riutilizzato da un record attivo
+
+Regola di scope per unicita codice:
+
+- `products`, `processed-products`, `packagings`: scope globale
+- `product-subtypes`, `varieties`: scope per `productId`
 
 ## Restore/Purge status codes
 

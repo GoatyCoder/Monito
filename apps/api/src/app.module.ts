@@ -11,6 +11,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProductsModule } from './modules/products/products.module';
+import { ProductSubtypesModule } from './modules/product-subtypes/product-subtypes.module';
 import { VarietiesModule } from './modules/varieties/varieties.module';
 import { FieldLotsModule } from './modules/field-lots/field-lots.module';
 import { ProcessedProductsModule } from './modules/processed-products/processed-products.module';
@@ -67,6 +68,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     AuthModule,
     UsersModule,
     ProductsModule,
+    ProductSubtypesModule,
     VarietiesModule,
     FieldLotsModule,
     ProcessedProductsModule,

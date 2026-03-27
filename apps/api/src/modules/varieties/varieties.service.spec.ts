@@ -15,6 +15,7 @@ describe('VarietiesService', () => {
     name: 'Crimson Seedless',
     description: 'Sample',
     productId: 'product-id-1',
+    productSubtypeId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -34,6 +35,9 @@ describe('VarietiesService', () => {
         count: jest.fn(),
       },
       product: {
+        findUnique: jest.fn(),
+      },
+      productSubtype: {
         findUnique: jest.fn(),
       },
       fieldLot: {
@@ -84,7 +88,22 @@ describe('VarietiesService', () => {
     expect(auditQueue.push).toHaveBeenCalled();
   });
 
+  it('allows same code when product is different', async () => {
+    prisma.variety.findFirst.mockResolvedValue(null);
+    prisma.product.findUnique.mockResolvedValue({ id: 'product-id-2' });
+    prisma.variety.create.mockResolvedValue({ ...mockVariety, id: 'variety-id-2', productId: 'product-id-2' });
+
+    const result = await service.create({
+      code: 'CRIMSON',
+      name: 'Crimson',
+      productId: 'product-id-2',
+    });
+
+    expect(result.productId).toBe('product-id-2');
+  });
+
   it('throws ConflictException when code already exists', async () => {
+    prisma.product.findUnique.mockResolvedValue({ id: 'product-id-1' });
     prisma.variety.findFirst.mockResolvedValue(mockVariety);
 
     await expect(
@@ -99,6 +118,47 @@ describe('VarietiesService', () => {
     await expect(
       service.create({ code: 'CRIMSON', name: 'Crimson', productId: 'missing' }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ConflictException when subtype belongs to another product', async () => {
+    prisma.variety.findFirst.mockResolvedValue(null);
+    prisma.product.findUnique.mockResolvedValue({ id: 'product-id-1' });
+    prisma.productSubtype.findUnique.mockResolvedValue({ id: 'subtype-id-2', productId: 'product-id-2' });
+
+    await expect(
+      service.create({
+        code: 'CRIMSON',
+        name: 'Crimson',
+        productId: 'product-id-1',
+        productSubtypeId: 'subtype-id-2',
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('updates variety product and clears subtype when product changes', async () => {
+    prisma.variety.findUnique.mockResolvedValue({
+      ...mockVariety,
+      productSubtypeId: 'subtype-id-1',
+    });
+    prisma.product.findUnique.mockResolvedValue({ id: 'product-id-2' });
+    prisma.variety.findFirst.mockResolvedValue(null);
+    prisma.variety.update.mockResolvedValue({
+      ...mockVariety,
+      productId: 'product-id-2',
+      productSubtypeId: null,
+    });
+
+    const result = await service.update('variety-id-1', { productId: 'product-id-2' });
+
+    expect(prisma.variety.update).toHaveBeenCalledWith({
+      where: { id: 'variety-id-1' },
+      data: {
+        productId: 'product-id-2',
+        productSubtypeId: null,
+      },
+    });
+    expect(result.productId).toBe('product-id-2');
+    expect(result.productSubtypeId).toBeNull();
   });
 
   it('returns paginated active varieties', async () => {

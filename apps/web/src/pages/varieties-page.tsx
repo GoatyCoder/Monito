@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,6 +13,7 @@ import {
   type VarietyFilters,
 } from '@/hooks/use-varieties';
 import { useAllProducts } from '@/hooks/use-products';
+import { useProductSubtypesByProduct } from '@/hooks/use-product-subtypes';
 import { useAuth } from '@/contexts/auth-context';
 import { showError, showSuccess } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ const varietySchema = z.object({
   name: z.string().min(1, 'Nome richiesto'),
   description: z.string().optional(),
   productId: z.string().min(1, 'Prodotto richiesto'),
+  productSubtypeId: z.string().optional(),
 });
 
 type VarietyForm = z.infer<typeof varietySchema>;
@@ -61,8 +63,15 @@ export function VarietiesPage() {
     view: 'active',
   });
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingVariety, setEditingVariety] = useState<Variety | null>(null);
+  const [deletingVariety, setDeletingVariety] = useState<Variety | null>(null);
+  const [purgingVariety, setPurgingVariety] = useState<Variety | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+
   const { data, isLoading } = useVarieties(filters);
   const { data: productsData } = useAllProducts();
+  const { data: subtypesData } = useProductSubtypesByProduct(selectedProductId);
 
   const createVariety = useCreateVariety();
   const updateVariety = useUpdateVariety();
@@ -70,19 +79,31 @@ export function VarietiesPage() {
   const restoreVariety = useRestoreVariety();
   const purgeVariety = usePurgeVariety();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingVariety, setEditingVariety] = useState<Variety | null>(null);
-  const [deletingVariety, setDeletingVariety] = useState<Variety | null>(null);
-  const [purgingVariety, setPurgingVariety] = useState<Variety | null>(null);
-
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<VarietyForm>({
     resolver: zodResolver(varietySchema),
   });
+
+  const productIdValue = watch('productId');
+
+  useEffect(() => {
+    if (isDialogOpen) {
+      if (productIdValue) {
+        setSelectedProductId(productIdValue);
+      } else if (editingVariety) {
+        setSelectedProductId(editingVariety.productId);
+      } else {
+        setSelectedProductId('');
+      }
+    }
+  }, [isDialogOpen, productIdValue, editingVariety]);
+
+  const subtypes = subtypesData ?? [];
 
   const handlePageChange = useCallback((page: number) => {
     setFilters((prev) => ({ ...prev, page }));
@@ -108,15 +129,18 @@ export function VarietiesPage() {
   const handleOpenDialog = (variety?: Variety) => {
     if (variety) {
       setEditingVariety(variety);
+      setSelectedProductId(variety.productId);
       reset({
         code: variety.code,
         name: variety.name,
         description: variety.description || '',
         productId: variety.productId,
+        productSubtypeId: variety.productSubtypeId || '',
       });
     } else {
       setEditingVariety(null);
-      reset({ code: '', name: '', description: '', productId: '' });
+      setSelectedProductId('');
+      reset({ code: '', name: '', description: '', productId: '', productSubtypeId: '' });
     }
     setIsDialogOpen(true);
   };
@@ -124,16 +148,31 @@ export function VarietiesPage() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingVariety(null);
-    reset({ code: '', name: '', description: '', productId: '' });
+    setSelectedProductId('');
+    reset({ code: '', name: '', description: '', productId: '', productSubtypeId: '' });
   };
 
   const onSubmit = async (formData: VarietyForm) => {
+    const trimmedSubtypeId = formData.productSubtypeId?.trim();
+
     try {
       if (editingVariety) {
-        await updateVariety.mutateAsync({ id: editingVariety.id, data: formData });
+        await updateVariety.mutateAsync({
+          id: editingVariety.id,
+          data: {
+            code: formData.code,
+            name: formData.name,
+            description: formData.description,
+            productId: formData.productId,
+            productSubtypeId: trimmedSubtypeId ? trimmedSubtypeId : null,
+          },
+        });
         showSuccess('Varietà aggiornata con successo');
       } else {
-        await createVariety.mutateAsync(formData);
+        await createVariety.mutateAsync({
+          ...formData,
+          productSubtypeId: trimmedSubtypeId ? trimmedSubtypeId : undefined,
+        });
         showSuccess('Varietà creata con successo');
       }
       handleCloseDialog();
@@ -372,6 +411,21 @@ export function VarietiesPage() {
                     {errors.productId.message}
                   </p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="variety-subtype">Sottotipologia</Label>
+                <select
+                  id="variety-subtype"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  {...register('productSubtypeId')}
+                >
+                  <option value="">Seleziona sottotipologia (opzionale)</option>
+                  {subtypes.map((subtype) => (
+                    <option key={subtype.id} value={subtype.id}>
+                      {subtype.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="variety-description">Descrizione</Label>

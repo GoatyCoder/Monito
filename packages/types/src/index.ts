@@ -1,5 +1,6 @@
 export * from './user';
 export * from './product';
+export * from './product-subtype';
 export * from './variety';
 export * from './packaging';
 export * from './processed-product';

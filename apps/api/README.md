@@ -143,6 +143,7 @@ Nota: nelle risposte audit sono inclusi anche `username` e `userDisplayName` per
 Per popolare combobox e selector lato frontend senza dipendere da `limit`/paginazione:
 
 - `GET /products/all`
+- `GET /products/:productId/subtypes/all`
 - `GET /varieties/all`
 - `GET /field-lots/all`
 - `GET /processed-products/all`
@@ -158,6 +159,24 @@ Per i codici alfanumerici di `products`, `varieties`, `processed-products`, `pac
 - lunghezza target lato persistenza: `32`
 - in soft delete il codice viene rinominato con suffisso `_del_<timestamp>` restando entro 32 caratteri
 - in restore viene ripristinato il codice originale; se quel codice e gia usato da un record attivo, restore risponde `409`
+
+Scope unicita codice:
+
+- `products`, `processed-products`, `packagings`: univoci globalmente
+- `product-subtypes`, `varieties`: univoci per `productId` (due prodotti diversi possono condividere lo stesso `code`)
+
+## Vincoli lavorati (ProcessedProduct)
+
+`ProcessedProduct` supporta vincoli opzionali multipli:
+
+- `allowedProductIds`
+- `allowedSubtypeIds`
+- `allowedVarietyIds`
+
+Regola applicata in creazione pallet: OR globale.
+
+- se non sono configurati vincoli, il lavorato e sempre consentito
+- se sono presenti, basta il match di uno tra prodotto/subtype/varieta
 
 ## RBAC
 

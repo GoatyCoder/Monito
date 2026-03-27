@@ -26,6 +26,15 @@ export class PalletsService {
 
     const fieldLot = await this.prisma.fieldLot.findUnique({
       where: { id: dto.fieldLotId, deletedAt: null },
+      include: {
+        variety: {
+          select: {
+            id: true,
+            productId: true,
+            productSubtypeId: true,
+          },
+        },
+      },
     });
 
     if (!fieldLot) {
@@ -37,6 +46,11 @@ export class PalletsService {
 
     const processedProducts = await this.prisma.processedProduct.findMany({
       where: { id: { in: processedProductIds }, deletedAt: null },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     if (processedProducts.length !== processedProductIds.length) {
@@ -49,6 +63,21 @@ export class PalletsService {
 
     if (packagings.length !== packagingIds.length) {
       throw new NotFoundException('One or more packagings not found');
+    }
+
+    for (const processedProduct of processedProducts) {
+      if (
+        !this.isProcessedProductAllowedForFieldLot(
+          processedProduct,
+          fieldLot.variety.productId,
+          fieldLot.variety.productSubtypeId,
+          fieldLot.variety.id,
+        )
+      ) {
+        throw new BadRequestException(
+          `Processed product ${processedProduct.code} is not allowed for the selected field lot variety`,
+        );
+      }
     }
 
     const palletNumber = await this.generatePalletNumber();
@@ -478,5 +507,41 @@ export class PalletsService {
       packagingId: item.packagingId,
       createdAt: item.createdAt,
     };
+  }
+
+  private isProcessedProductAllowedForFieldLot(
+    processedProduct: {
+      allowedProducts?: { productId: string }[];
+      allowedSubtypes?: { productSubtypeId: string }[];
+      allowedVarieties?: { varietyId: string }[];
+    },
+    productId: string,
+    productSubtypeId: string | null,
+    varietyId: string,
+  ): boolean {
+    const allowedProducts = processedProduct.allowedProducts ?? [];
+    const allowedSubtypes = processedProduct.allowedSubtypes ?? [];
+    const allowedVarieties = processedProduct.allowedVarieties ?? [];
+
+    if (allowedProducts.length === 0 && allowedSubtypes.length === 0 && allowedVarieties.length === 0) {
+      return true;
+    }
+
+    if (allowedProducts.some((entry) => entry.productId === productId)) {
+      return true;
+    }
+
+    if (
+      productSubtypeId &&
+      allowedSubtypes.some((entry) => entry.productSubtypeId === productSubtypeId)
+    ) {
+      return true;
+    }
+
+    if (allowedVarieties.some((entry) => entry.varietyId === varietyId)) {
+      return true;
+    }
+
+    return false;
   }
 }

@@ -27,4 +27,13 @@ export class ProcessedProductResponseDto {
 
   @ApiProperty({ nullable: true })
   deletedAt: Date | null;
+
+  @ApiProperty({ type: [String] })
+  allowedProductIds: string[];
+
+  @ApiProperty({ type: [String] })
+  allowedSubtypeIds: string[];
+
+  @ApiProperty({ type: [String] })
+  allowedVarietyIds: string[];
 }

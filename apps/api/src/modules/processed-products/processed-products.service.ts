@@ -22,6 +22,7 @@ export class ProcessedProductsService {
   ) {}
 
   async create(dto: CreateProcessedProductDto, userId?: string): Promise<ProcessedProductResponseDto> {
+    const constraints = this.extractConstraintIds(dto);
     const existing = await this.prisma.processedProduct.findFirst({
       where: {
         code: dto.code,
@@ -42,8 +43,39 @@ export class ProcessedProductsService {
       }
     }
 
+    await this.ensureConstraintReferencesExist(constraints);
+
     const product = await this.prisma.processedProduct.create({
-      data: dto,
+      data: {
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        ean: dto.ean,
+        weightPerBoxKg: dto.weightPerBoxKg,
+        allowedProducts:
+          constraints.allowedProductIds.length > 0
+            ? {
+                create: constraints.allowedProductIds.map((productId) => ({ productId })),
+              }
+            : undefined,
+        allowedSubtypes:
+          constraints.allowedSubtypeIds.length > 0
+            ? {
+                create: constraints.allowedSubtypeIds.map((productSubtypeId) => ({ productSubtypeId })),
+              }
+            : undefined,
+        allowedVarieties:
+          constraints.allowedVarietyIds.length > 0
+            ? {
+                create: constraints.allowedVarietyIds.map((varietyId) => ({ varietyId })),
+              }
+            : undefined,
+      },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     this.logger.log(`ProcessedProduct created: ${product.id}`);
@@ -53,7 +85,10 @@ export class ProcessedProductsService {
       entity: ENTITY_NAME,
       entityId: product.id,
       operation: AuditOperation.CREATE,
-      newValue: dto as unknown as Record<string, unknown>,
+      newValue: {
+        ...dto,
+        ...constraints,
+      } as unknown as Record<string, unknown>,
     });
 
     return this.toResponse(product);
@@ -78,6 +113,11 @@ export class ProcessedProductsService {
         skip,
         take,
         orderBy: { createdAt: 'desc' },
+        include: {
+          allowedProducts: true,
+          allowedSubtypes: true,
+          allowedVarieties: true,
+        },
       }),
       this.prisma.processedProduct.count({ where }),
     ]);
@@ -97,6 +137,11 @@ export class ProcessedProductsService {
     const products = await this.prisma.processedProduct.findMany({
       where: { deletedAt: null },
       orderBy: { name: 'asc' },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     return products.map((product) => this.toResponse(product));
@@ -118,6 +163,11 @@ export class ProcessedProductsService {
         skip,
         take,
         orderBy: { createdAt: 'desc' },
+        include: {
+          allowedProducts: true,
+          allowedSubtypes: true,
+          allowedVarieties: true,
+        },
       }),
       this.prisma.processedProduct.count({ where }),
     ]);
@@ -136,6 +186,11 @@ export class ProcessedProductsService {
   async findById(id: string): Promise<ProcessedProductResponseDto> {
     const product = await this.prisma.processedProduct.findUnique({
       where: { id, deletedAt: null },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     if (!product) {
@@ -148,6 +203,11 @@ export class ProcessedProductsService {
   async findDeletedById(id: string): Promise<ProcessedProductResponseDto> {
     const product = await this.prisma.processedProduct.findUnique({
       where: { id, deletedAt: { not: null } },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     if (!product) {
@@ -158,8 +218,14 @@ export class ProcessedProductsService {
   }
 
   async update(id: string, dto: UpdateProcessedProductDto, userId?: string): Promise<ProcessedProductResponseDto> {
+    const constraints = this.extractConstraintIds(dto);
     const product = await this.prisma.processedProduct.findUnique({
       where: { id, deletedAt: null },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     if (!product) {
@@ -188,10 +254,47 @@ export class ProcessedProductsService {
       }
     }
 
+    await this.ensureConstraintReferencesExist(constraints);
+
     const oldValue = this.toResponse(product);
     const updated = await this.prisma.processedProduct.update({
       where: { id },
-      data: dto,
+      data: {
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        ean: dto.ean,
+        weightPerBoxKg: dto.weightPerBoxKg,
+        ...(dto.allowedProductIds
+          ? {
+              allowedProducts: {
+                deleteMany: {},
+                create: constraints.allowedProductIds.map((productId) => ({ productId })),
+              },
+            }
+          : {}),
+        ...(dto.allowedSubtypeIds
+          ? {
+              allowedSubtypes: {
+                deleteMany: {},
+                create: constraints.allowedSubtypeIds.map((productSubtypeId) => ({ productSubtypeId })),
+              },
+            }
+          : {}),
+        ...(dto.allowedVarietyIds
+          ? {
+              allowedVarieties: {
+                deleteMany: {},
+                create: constraints.allowedVarietyIds.map((varietyId) => ({ varietyId })),
+              },
+            }
+          : {}),
+      },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     this.logger.log(`ProcessedProduct updated: ${id}`);
@@ -202,7 +305,10 @@ export class ProcessedProductsService {
       entityId: id,
       operation: AuditOperation.UPDATE,
       oldValue: oldValue as unknown as Record<string, unknown>,
-      newValue: dto as unknown as Record<string, unknown>,
+      newValue: {
+        ...dto,
+        ...constraints,
+      } as unknown as Record<string, unknown>,
     });
 
     return this.toResponse(updated);
@@ -246,6 +352,11 @@ export class ProcessedProductsService {
   async restore(id: string, userId?: string): Promise<ProcessedProductResponseDto> {
     const product = await this.prisma.processedProduct.findUnique({
       where: { id },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
     if (!product) {
@@ -276,6 +387,11 @@ export class ProcessedProductsService {
       data: {
         deletedAt: null,
         code: originalCode,
+      },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
       },
     });
 
@@ -325,7 +441,20 @@ export class ProcessedProductsService {
     });
   }
 
-  private toResponse(product: { id: string; code: string; name: string; description: string | null; ean: string | null; weightPerBoxKg: number; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }): ProcessedProductResponseDto {
+  private toResponse(product: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    ean: string | null;
+    weightPerBoxKg: number;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+    allowedProducts?: { productId: string }[];
+    allowedSubtypes?: { productSubtypeId: string }[];
+    allowedVarieties?: { varietyId: string }[];
+  }): ProcessedProductResponseDto {
     return {
       id: product.id,
       code: product.code,
@@ -336,7 +465,74 @@ export class ProcessedProductsService {
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt ?? null,
+      allowedProductIds: product.allowedProducts?.map((item) => item.productId) ?? [],
+      allowedSubtypeIds: product.allowedSubtypes?.map((item) => item.productSubtypeId) ?? [],
+      allowedVarietyIds: product.allowedVarieties?.map((item) => item.varietyId) ?? [],
     };
+  }
+
+  private extractConstraintIds(dto: {
+    allowedProductIds?: string[];
+    allowedSubtypeIds?: string[];
+    allowedVarietyIds?: string[];
+  }): {
+    allowedProductIds: string[];
+    allowedSubtypeIds: string[];
+    allowedVarietyIds: string[];
+  } {
+    return {
+      allowedProductIds: [...new Set(dto.allowedProductIds ?? [])],
+      allowedSubtypeIds: [...new Set(dto.allowedSubtypeIds ?? [])],
+      allowedVarietyIds: [...new Set(dto.allowedVarietyIds ?? [])],
+    };
+  }
+
+  private async ensureConstraintReferencesExist(constraints: {
+    allowedProductIds: string[];
+    allowedSubtypeIds: string[];
+    allowedVarietyIds: string[];
+  }): Promise<void> {
+    const productsCount =
+      constraints.allowedProductIds.length > 0
+        ? await this.prisma.product.count({
+            where: {
+              id: { in: constraints.allowedProductIds },
+              deletedAt: null,
+            },
+          })
+        : 0;
+
+    const subtypesCount =
+      constraints.allowedSubtypeIds.length > 0
+        ? await this.prisma.productSubtype.count({
+            where: {
+              id: { in: constraints.allowedSubtypeIds },
+              deletedAt: null,
+            },
+          })
+        : 0;
+
+    const varietiesCount =
+      constraints.allowedVarietyIds.length > 0
+        ? await this.prisma.variety.count({
+            where: {
+              id: { in: constraints.allowedVarietyIds },
+              deletedAt: null,
+            },
+          })
+        : 0;
+
+    if (constraints.allowedProductIds.length > 0 && productsCount !== constraints.allowedProductIds.length) {
+      throw new NotFoundException('One or more allowed products not found');
+    }
+
+    if (constraints.allowedSubtypeIds.length > 0 && subtypesCount !== constraints.allowedSubtypeIds.length) {
+      throw new NotFoundException('One or more allowed product subtypes not found');
+    }
+
+    if (constraints.allowedVarietyIds.length > 0 && varietiesCount !== constraints.allowedVarietyIds.length) {
+      throw new NotFoundException('One or more allowed varieties not found');
+    }
   }
 
   private buildSoftDeletedCode(code: string): string {

@@ -4,6 +4,7 @@ export interface Variety {
   name: string;
   description?: string;
   productId: string;
+  productSubtypeId?: string | null;
   createdAt: Date;
   updatedAt?: Date;
   deletedAt?: Date | null;
@@ -14,6 +15,7 @@ export interface CreateVarietyDto {
   name: string;
   description?: string;
   productId: string;
+  productSubtypeId?: string | null;
 }
 
 export interface UpdateVarietyDto {
@@ -21,6 +23,7 @@ export interface UpdateVarietyDto {
   name?: string;
   description?: string;
   productId?: string;
+  productSubtypeId?: string | null;
 }
 
 export interface VarietyResponseDto {
@@ -29,6 +32,7 @@ export interface VarietyResponseDto {
   name: string;
   description?: string;
   productId: string;
+  productSubtypeId?: string | null;
   createdAt: Date;
   updatedAt?: Date;
   deletedAt?: Date | null;
@@ -36,4 +40,5 @@ export interface VarietyResponseDto {
 
 export interface VarietyWithProduct extends VarietyResponseDto {
   productName?: string;
+  productSubtypeName?: string;
 }

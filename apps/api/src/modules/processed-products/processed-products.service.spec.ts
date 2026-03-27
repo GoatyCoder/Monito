@@ -16,6 +16,9 @@ describe('ProcessedProductsService', () => {
     description: 'Sample',
     ean: '1234567890123',
     weightPerBoxKg: 0.5,
+    allowedProducts: [],
+    allowedSubtypes: [],
+    allowedVarieties: [],
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -35,6 +38,15 @@ describe('ProcessedProductsService', () => {
         count: jest.fn(),
       },
       palletItem: {
+        count: jest.fn(),
+      },
+      product: {
+        count: jest.fn(),
+      },
+      productSubtype: {
+        count: jest.fn(),
+      },
+      variety: {
         count: jest.fn(),
       },
       $transaction: jest.fn((arg: ((tx: any) => Promise<unknown>) | unknown[]) => {
@@ -79,6 +91,9 @@ describe('ProcessedProductsService', () => {
     });
 
     expect(result.id).toBe(mockProcessedProduct.id);
+    expect(result.allowedProductIds).toEqual([]);
+    expect(result.allowedSubtypeIds).toEqual([]);
+    expect(result.allowedVarietyIds).toEqual([]);
     expect(auditQueue.push).toHaveBeenCalled();
   });
 
@@ -102,6 +117,20 @@ describe('ProcessedProductsService', () => {
         weightPerBoxKg: 0.5,
       }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('throws NotFoundException when one allowed product does not exist', async () => {
+    prisma.processedProduct.findFirst.mockResolvedValueOnce(null);
+    prisma.product.count.mockResolvedValue(0);
+
+    await expect(
+      service.create({
+        code: 'CEST10X500',
+        name: 'X',
+        weightPerBoxKg: 0.5,
+        allowedProductIds: ['missing-product-id'],
+      }),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('throws ConflictException on update when ean already exists', async () => {
@@ -131,6 +160,11 @@ describe('ProcessedProductsService', () => {
     expect(prisma.processedProduct.findMany).toHaveBeenCalledWith({
       where: { deletedAt: null },
       orderBy: { name: 'asc' },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
     expect(result).toHaveLength(1);
   });

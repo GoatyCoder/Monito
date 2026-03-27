@@ -21,4 +21,9 @@ export class CreateVarietyDto {
   @ApiProperty()
   @IsString()
   productId: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  productSubtypeId?: string | null;
 }

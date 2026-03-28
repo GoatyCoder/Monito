@@ -7,6 +7,14 @@ import { PaginatedResponse } from '../../common/interceptors/transform.intercept
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import {
+  getIsoCountryOptions,
+  getItalianComuneOptions,
+  getItalianProvinceOptions,
+  getItalianRegionOptions,
+  normalizeOriginInput,
+  validateOriginInput,
+} from './origin-reference';
 
 export const ENTITY_NAME = 'FieldLot';
 
@@ -20,6 +28,9 @@ export class FieldLotsService {
   ) {}
 
   async create(dto: CreateFieldLotDto, userId?: string): Promise<FieldLotResponseDto> {
+    const origin = normalizeOriginInput(dto);
+    validateOriginInput(origin);
+
     const variety = await this.prisma.variety.findUnique({
       where: { id: dto.varietyId, deletedAt: null },
     });
@@ -41,6 +52,10 @@ export class FieldLotsService {
         lotCode: dto.lotCode,
         supplier: dto.supplier,
         varietyId: dto.varietyId,
+        originCountryCode: origin.originCountryCode,
+        originRegion: origin.originRegion,
+        originProvince: origin.originProvince,
+        originComune: origin.originComune,
       },
     });
 
@@ -187,6 +202,10 @@ export class FieldLotsService {
       lotCode: fieldLot.lotCode,
       supplier: fieldLot.supplier,
       varietyId: fieldLot.varietyId,
+      originCountryCode: fieldLot.originCountryCode,
+      originRegion: fieldLot.originRegion,
+      originProvince: fieldLot.originProvince,
+      originComune: fieldLot.originComune,
       createdAt: fieldLot.createdAt,
       updatedAt: fieldLot.updatedAt,
       deletedAt: fieldLot.deletedAt ?? null,
@@ -212,10 +231,48 @@ export class FieldLotsService {
       }
     }
 
+    const nextOrigin = normalizeOriginInput({
+      originCountryCode: dto.originCountryCode ?? fieldLot.originCountryCode,
+      originRegion: dto.originRegion === undefined ? fieldLot.originRegion : dto.originRegion,
+      originProvince:
+        dto.originProvince === undefined ? fieldLot.originProvince : dto.originProvince,
+      originComune: dto.originComune === undefined ? fieldLot.originComune : dto.originComune,
+    });
+    validateOriginInput(nextOrigin);
+
+    const shouldClearOriginHierarchy =
+      dto.originCountryCode !== undefined &&
+      nextOrigin.originCountryCode !== 'IT' &&
+      dto.originRegion === undefined &&
+      dto.originProvince === undefined &&
+      dto.originComune === undefined;
+
     const oldValue = this.toResponse(fieldLot);
     const updated = await this.prisma.fieldLot.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        originCountryCode: dto.originCountryCode
+          ? nextOrigin.originCountryCode
+          : undefined,
+        originRegion: shouldClearOriginHierarchy
+          ? null
+          : dto.originRegion === undefined
+            ? undefined
+            : nextOrigin.originRegion ?? null,
+        originProvince:
+          shouldClearOriginHierarchy
+            ? null
+            : dto.originProvince === undefined
+              ? undefined
+              : nextOrigin.originProvince ?? null,
+        originComune:
+          shouldClearOriginHierarchy
+            ? null
+            : dto.originComune === undefined
+              ? undefined
+              : nextOrigin.originComune ?? null,
+      },
     });
 
     this.logger.log(`FieldLot updated: ${id}`);
@@ -325,12 +382,48 @@ export class FieldLotsService {
     });
   }
 
-  private toResponse(fieldLot: { id: string; lotCode: string; supplier: string; varietyId: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {
+  getOriginCountries() {
+    return getIsoCountryOptions();
+  }
+
+  getItalianRegions() {
+    return getItalianRegionOptions();
+  }
+
+  getItalianProvinces(regionCode?: string) {
+    return getItalianProvinceOptions(regionCode?.trim() || undefined);
+  }
+
+  getItalianComuni(params: { regionCode?: string; provinceCode?: string; search?: string }) {
+    return getItalianComuneOptions({
+      regionCode: params.regionCode?.trim() || undefined,
+      provinceCode: params.provinceCode?.trim() || undefined,
+      search: params.search,
+    });
+  }
+
+  private toResponse(fieldLot: {
+    id: string;
+    lotCode: string;
+    supplier: string;
+    varietyId: string;
+    originCountryCode: string;
+    originRegion?: string | null;
+    originProvince?: string | null;
+    originComune?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+  }) {
     return {
       id: fieldLot.id,
       lotCode: fieldLot.lotCode,
       supplier: fieldLot.supplier,
       varietyId: fieldLot.varietyId,
+      originCountryCode: fieldLot.originCountryCode,
+      originRegion: fieldLot.originRegion ?? null,
+      originProvince: fieldLot.originProvince ?? null,
+      originComune: fieldLot.originComune ?? null,
       createdAt: fieldLot.createdAt,
       updatedAt: fieldLot.updatedAt,
       deletedAt: fieldLot.deletedAt ?? null,

@@ -170,6 +170,11 @@ Scope unicita codice:
 - dimensioni: millimetri (`mm`) con campi interi
 - pesi: chilogrammi (`kg`) con precisione massima 3 decimali lato API
 
+## Origine lotti di campo
+
+- `FieldLot.originCountryCode` obbligatorio (ISO 3166-1 alpha-2)
+- per `originCountryCode = IT`, eventuali `originRegion`, `originProvince`, `originComune` sono validati contro codici ISTAT e coerenza gerarchica
+
 ## Vincoli lavorati (ProcessedProduct)
 
 `ProcessedProduct` supporta vincoli opzionali multipli:

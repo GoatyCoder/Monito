@@ -88,6 +88,46 @@ export class FieldLotsController {
     return this.fieldLotsService.findAllActive();
   }
 
+  @Get('origins/countries')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get ISO country codes list' })
+  @ApiResponse({ status: 200, description: 'ISO countries' })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  getOriginCountries() {
+    return this.fieldLotsService.getOriginCountries();
+  }
+
+  @Get('origins/it/regions')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get Italy regions codes list' })
+  @ApiResponse({ status: 200, description: 'Italian regions' })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  getItalianRegions() {
+    return this.fieldLotsService.getItalianRegions();
+  }
+
+  @Get('origins/it/provinces')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get Italy provinces codes list' })
+  @ApiResponse({ status: 200, description: 'Italian provinces' })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  getItalianProvinces(@Query('regionCode') regionCode?: string) {
+    return this.fieldLotsService.getItalianProvinces(regionCode);
+  }
+
+  @Get('origins/it/comuni')
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiOperation({ summary: 'Get Italy comuni codes list' })
+  @ApiResponse({ status: 200, description: 'Italian comuni' })
+  @ApiForbiddenResponse({ description: 'Forbidden' })
+  getItalianComuni(
+    @Query('regionCode') regionCode?: string,
+    @Query('provinceCode') provinceCode?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.fieldLotsService.getItalianComuni({ regionCode, provinceCode, search });
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'OPERATOR')
   @ApiOperation({ summary: 'Get field lot by ID' })

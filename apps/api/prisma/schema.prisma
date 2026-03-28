@@ -119,6 +119,10 @@ model FieldLot {
   supplier  String
   variety   Variety   @relation(fields: [varietyId], references: [id], onDelete: Restrict)
   varietyId String
+  originCountryCode String
+  originRegion      String?
+  originProvince    String?
+  originComune      String?
   pallets   Pallet[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

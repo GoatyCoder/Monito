@@ -14,6 +14,10 @@ describe('FieldLotsService', () => {
     lotCode: 'LOT2026001',
     supplier: 'Paolo Rossi',
     varietyId: 'variety-id-1',
+    originCountryCode: 'IT',
+    originRegion: '09',
+    originProvince: '052',
+    originComune: '052001',
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -75,6 +79,10 @@ describe('FieldLotsService', () => {
       lotCode: 'LOT2026001',
       supplier: 'Paolo Rossi',
       varietyId: 'variety-id-1',
+      originCountryCode: 'IT',
+      originRegion: '09',
+      originProvince: '052',
+      originComune: '052001',
     });
 
     expect(result.id).toBe(mockFieldLot.id);
@@ -85,7 +93,12 @@ describe('FieldLotsService', () => {
     prisma.variety.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.create({ lotCode: 'LOT2026001', supplier: 'P', varietyId: 'missing' }),
+      service.create({
+        lotCode: 'LOT2026001',
+        supplier: 'P',
+        varietyId: 'missing',
+        originCountryCode: 'IT',
+      }),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -98,8 +111,37 @@ describe('FieldLotsService', () => {
         lotCode: 'LOT2026001',
         supplier: 'Paolo Rossi',
         varietyId: 'variety-id-1',
+        originCountryCode: 'IT',
       }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('throws BadRequest when origin country code is invalid', async () => {
+    prisma.variety.findUnique.mockResolvedValue({ id: 'variety-id-1' });
+
+    await expect(
+      service.create({
+        lotCode: 'LOT2026002',
+        supplier: 'Paolo Rossi',
+        varietyId: 'variety-id-1',
+        originCountryCode: 'ZZ',
+      }),
+    ).rejects.toThrow('originCountryCode is not a valid ISO country code');
+  });
+
+  it('throws BadRequest when italian comune is not coherent with province', async () => {
+    prisma.variety.findUnique.mockResolvedValue({ id: 'variety-id-1' });
+
+    await expect(
+      service.create({
+        lotCode: 'LOT2026003',
+        supplier: 'Paolo Rossi',
+        varietyId: 'variety-id-1',
+        originCountryCode: 'IT',
+        originProvince: '001',
+        originComune: '052001',
+      }),
+    ).rejects.toThrow('originComune is not coherent with originProvince');
   });
 
   it('returns paginated active field lots', async () => {

@@ -15,6 +15,7 @@ Questo documento descrive lo stato reale corrente del backend. PostgreSQL non e 
 - `ProductSubtype` (relazione con `Product`)
 - `Variety` (relazione con `Product`)
 - `FieldLot` (relazione con `Variety`)
+  - origine: `originCountryCode` (required), `originRegion`, `originProvince`, `originComune`
 - `ProcessedProduct`
 - `ProcessedProductAllowedProduct`
 - `ProcessedProductAllowedSubtype`

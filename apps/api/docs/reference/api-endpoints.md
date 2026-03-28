@@ -102,6 +102,20 @@ ProductSubtype notes:
 - `POST /field-lots/:id/restore` (`ADMIN`)
 - `POST /field-lots/:id/purge` (`ADMIN`)
 
+Origin lookup endpoints:
+
+- `GET /field-lots/origins/countries` (`ADMIN`, `OPERATOR`)
+- `GET /field-lots/origins/it/regions` (`ADMIN`, `OPERATOR`)
+- `GET /field-lots/origins/it/provinces?regionCode=..` (`ADMIN`, `OPERATOR`)
+- `GET /field-lots/origins/it/comuni?regionCode=..&provinceCode=..&search=..` (`ADMIN`, `OPERATOR`)
+
+FieldLot origin fields:
+
+- `originCountryCode` (obbligatorio, ISO 3166-1 alpha-2)
+- `originRegion` (opzionale, codice ISTAT regione per Italia)
+- `originProvince` (opzionale, codice ISTAT provincia per Italia)
+- `originComune` (opzionale, codice ISTAT comune per Italia)
+
 ## Processed Products
 
 - `POST /processed-products` (`ADMIN`)

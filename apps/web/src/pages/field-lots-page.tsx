@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,6 +7,10 @@ import {
   useCreateFieldLot,
   useDeleteFieldLot,
   useFieldLots,
+  useItalianOriginComuni,
+  useItalianOriginProvinces,
+  useItalianOriginRegions,
+  useOriginCountries,
   usePurgeFieldLot,
   useRestoreFieldLot,
   useUpdateFieldLot,
@@ -43,6 +47,13 @@ const fieldLotSchema = z.object({
   lotCode: z.string().min(1, 'Codice lotto richiesto').max(16, 'Massimo 16 caratteri'),
   supplier: z.string().min(1, 'Fornitore richiesto'),
   varietyId: z.string().min(1, 'Varietà richiesta'),
+  originCountryCode: z
+    .string()
+    .min(1, 'Paese di origine richiesto')
+    .regex(/^[A-Z]{2}$/, 'Inserire un codice paese ISO a 2 lettere'),
+  originRegion: z.string().optional(),
+  originProvince: z.string().optional(),
+  originComune: z.string().optional(),
 });
 
 type FieldLotForm = z.infer<typeof fieldLotSchema>;
@@ -62,6 +73,8 @@ export function FieldLotsPage() {
 
   const { data, isLoading } = useFieldLots(filters);
   const { data: varietiesData } = useAllVarieties();
+  const { data: originCountriesData } = useOriginCountries();
+  const { data: italianRegionsData } = useItalianOriginRegions();
 
   const createFieldLot = useCreateFieldLot();
   const updateFieldLot = useUpdateFieldLot();
@@ -73,15 +86,96 @@ export function FieldLotsPage() {
   const [editingFieldLot, setEditingFieldLot] = useState<FieldLot | null>(null);
   const [deletingFieldLot, setDeletingFieldLot] = useState<FieldLot | null>(null);
   const [purgingFieldLot, setPurgingFieldLot] = useState<FieldLot | null>(null);
+  const [originComuneSearch, setOriginComuneSearch] = useState('');
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FieldLotForm>({
     resolver: zodResolver(fieldLotSchema),
   });
+
+  const selectedCountry = watch('originCountryCode');
+  const selectedRegion = watch('originRegion');
+  const selectedProvince = watch('originProvince');
+  const selectedComune = watch('originComune');
+
+  const { data: italianProvincesData } = useItalianOriginProvinces(
+    selectedCountry === 'IT' ? selectedRegion : undefined,
+  );
+
+  const { data: italianComuniData } = useItalianOriginComuni({
+    regionCode: selectedCountry === 'IT' ? selectedRegion : undefined,
+    provinceCode: selectedCountry === 'IT' ? selectedProvince : undefined,
+    search: selectedCountry === 'IT' ? originComuneSearch : undefined,
+  });
+
+  const italianProvinces = italianProvincesData ?? [];
+  const italianComuni = italianComuniData ?? [];
+
+  useEffect(() => {
+    if (
+      selectedCountry !== 'IT' &&
+      (selectedRegion || selectedProvince || selectedComune || originComuneSearch)
+    ) {
+      setValue('originRegion', '');
+      setValue('originProvince', '');
+      setValue('originComune', '');
+      setOriginComuneSearch('');
+    }
+  }, [
+    originComuneSearch,
+    selectedCountry,
+    selectedComune,
+    selectedProvince,
+    selectedRegion,
+    setValue,
+  ]);
+
+  useEffect(() => {
+    if (selectedCountry !== 'IT') {
+      return;
+    }
+
+    if (selectedProvince) {
+      const province = italianProvinces.find((item) => item.code === selectedProvince);
+      if (province?.regionCode && selectedRegion !== province.regionCode) {
+        setValue('originRegion', province.regionCode);
+      }
+    }
+  }, [italianProvinces, selectedCountry, selectedProvince, selectedRegion, setValue]);
+
+  useEffect(() => {
+    if (selectedCountry !== 'IT') {
+      return;
+    }
+
+    if (selectedComune) {
+      const comune = italianComuni.find((item) => item.code === selectedComune);
+      if (!comune) {
+        return;
+      }
+
+      if (selectedProvince !== comune.provinceCode) {
+        setValue('originProvince', comune.provinceCode);
+      }
+
+      if (selectedRegion !== comune.regionCode) {
+        setValue('originRegion', comune.regionCode);
+      }
+    }
+  }, [
+    italianComuni,
+    selectedComune,
+    selectedCountry,
+    selectedProvince,
+    selectedRegion,
+    setValue,
+  ]);
 
   const handlePageChange = useCallback((page: number) => {
     setFilters((prev) => ({ ...prev, page }));
@@ -111,10 +205,24 @@ export function FieldLotsPage() {
         lotCode: fieldLot.lotCode,
         supplier: fieldLot.supplier,
         varietyId: fieldLot.varietyId,
+        originCountryCode: fieldLot.originCountryCode,
+        originRegion: fieldLot.originRegion || '',
+        originProvince: fieldLot.originProvince || '',
+        originComune: fieldLot.originComune || '',
       });
+      setOriginComuneSearch('');
     } else {
       setEditingFieldLot(null);
-      reset({ lotCode: '', supplier: '', varietyId: '' });
+      reset({
+        lotCode: '',
+        supplier: '',
+        varietyId: '',
+        originCountryCode: 'IT',
+        originRegion: '',
+        originProvince: '',
+        originComune: '',
+      });
+      setOriginComuneSearch('');
     }
     setIsDialogOpen(true);
   };
@@ -122,16 +230,33 @@ export function FieldLotsPage() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingFieldLot(null);
-    reset({ lotCode: '', supplier: '', varietyId: '' });
+    reset({
+      lotCode: '',
+      supplier: '',
+      varietyId: '',
+      originCountryCode: 'IT',
+      originRegion: '',
+      originProvince: '',
+      originComune: '',
+    });
+    setOriginComuneSearch('');
   };
 
   const onSubmit = async (formData: FieldLotForm) => {
+    const payload = {
+      ...formData,
+      originCountryCode: formData.originCountryCode.trim().toUpperCase(),
+      originRegion: formData.originRegion?.trim() || undefined,
+      originProvince: formData.originProvince?.trim() || undefined,
+      originComune: formData.originComune?.trim() || undefined,
+    };
+
     try {
       if (editingFieldLot) {
-        await updateFieldLot.mutateAsync({ id: editingFieldLot.id, data: formData });
+        await updateFieldLot.mutateAsync({ id: editingFieldLot.id, data: payload });
         showSuccess('Lotto aggiornato con successo');
       } else {
-        await createFieldLot.mutateAsync(formData);
+        await createFieldLot.mutateAsync(payload);
         showSuccess('Lotto creato con successo');
       }
       handleCloseDialog();
@@ -203,6 +328,7 @@ export function FieldLotsPage() {
               </TableHead>
               <TableHead scope="col">Fornitore</TableHead>
               <TableHead scope="col">Varietà</TableHead>
+              <TableHead scope="col">Origine</TableHead>
               <TableHead scope="col" className="w-[120px]">
                 Azioni
               </TableHead>
@@ -211,13 +337,13 @@ export function FieldLotsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8" aria-busy="true" aria-live="polite">
+                <TableCell colSpan={5} className="text-center py-8" aria-busy="true" aria-live="polite">
                   Caricamento...
                 </TableCell>
               </TableRow>
             ) : data?.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-foreground-muted">
+                <TableCell colSpan={5} className="text-center py-8 text-foreground-muted">
                   Nessun lotto trovato
                 </TableCell>
               </TableRow>
@@ -227,6 +353,7 @@ export function FieldLotsPage() {
                   <TableCell className="font-medium">{item.lotCode}</TableCell>
                   <TableCell>{item.supplier}</TableCell>
                   <TableCell>{varietyById.get(item.varietyId) ?? item.varietyId}</TableCell>
+                  <TableCell>{item.originCountryCode}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {item.deletedAt && isAdmin ? (
@@ -339,6 +466,114 @@ export function FieldLotsPage() {
                   </p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="field-lot-origin-country">Origine (Paese ISO)</Label>
+                <select
+                  id="field-lot-origin-country"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  {...register('originCountryCode')}
+                >
+                  <option value="">Seleziona paese</option>
+                  {(originCountriesData ?? []).map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.name} ({country.code})
+                    </option>
+                  ))}
+                </select>
+                {errors.originCountryCode && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {errors.originCountryCode.message}
+                  </p>
+                )}
+              </div>
+
+              {selectedCountry === 'IT' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="field-lot-origin-region">Regione (codice ISTAT)</Label>
+                    <select
+                      id="field-lot-origin-region"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      {...register('originRegion')}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setValue('originRegion', value);
+                        setValue('originProvince', '');
+                        setValue('originComune', '');
+                        setOriginComuneSearch('');
+                      }}
+                    >
+                      <option value="">Seleziona regione (opzionale)</option>
+                      {(italianRegionsData ?? []).map((region) => (
+                        <option key={region.code} value={region.code}>
+                          {region.name} ({region.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="field-lot-origin-province">Provincia (codice ISTAT)</Label>
+                    <select
+                      id="field-lot-origin-province"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      {...register('originProvince')}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        const province = italianProvinces.find((item) => item.code === value);
+                        setValue('originProvince', value);
+                        if (province?.regionCode) {
+                          setValue('originRegion', province.regionCode);
+                        }
+                        setValue('originComune', '');
+                        setOriginComuneSearch('');
+                      }}
+                    >
+                      <option value="">Seleziona provincia (opzionale)</option>
+                      {(italianProvincesData ?? []).map((province) => (
+                        <option key={province.code} value={province.code}>
+                          {province.name} ({province.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="field-lot-origin-comune-search">Ricerca comune</Label>
+                    <Input
+                      id="field-lot-origin-comune-search"
+                      value={originComuneSearch}
+                      onChange={(event) => setOriginComuneSearch(event.target.value)}
+                      placeholder="Cerca comune per nome"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="field-lot-origin-comune">Comune (codice ISTAT)</Label>
+                    <select
+                      id="field-lot-origin-comune"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      {...register('originComune')}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        const comune = italianComuni.find((item) => item.code === value);
+                        setValue('originComune', value);
+                        if (comune) {
+                          setValue('originProvince', comune.provinceCode);
+                          setValue('originRegion', comune.regionCode);
+                        }
+                      }}
+                    >
+                      <option value="">Seleziona comune (opzionale)</option>
+                      {(italianComuniData ?? []).slice(0, 250).map((comune) => (
+                        <option key={comune.code} value={comune.code}>
+                          {comune.name} ({comune.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleCloseDialog}>

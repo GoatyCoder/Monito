@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Role } from '../../../../generated/prisma/client';
+import { Expose } from 'class-transformer';
+import { Role, AvatarColor } from '../../../../generated/prisma/client';
 
 export class UserResponseDto {
   @ApiProperty()
@@ -18,8 +19,21 @@ export class UserResponseDto {
   role: Role;
 
   @ApiProperty()
+  isActive: boolean;
+
+  @ApiProperty()
+  mustChangePassword: boolean;
+
+  @ApiPropertyOptional({ enum: AvatarColor })
+  @Expose()
+  avatarColor?: string;
+
+  @ApiProperty()
   createdAt: Date;
 
   @ApiPropertyOptional()
   updatedAt?: Date;
+
+  @ApiPropertyOptional()
+  lastLoginAt?: Date | null;
 }

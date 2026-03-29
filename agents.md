@@ -1,190 +1,178 @@
-# agents.md
+# AGENTS.md
 
-Questo file definisce le regole operative per qualsiasi agente AI (Claude, Cursor, Copilot, ecc.)
-che lavora su questo repository. **Leggi e rispetta sempre queste istruzioni prima di generare codice.**
-
----
-
-## Contesto del progetto
-
-- **Tipo**: Strumento interno / backoffice
-- **Team**: ~decine di utenti interni
-- **Fase attuale**: Focus su backend e API REST
+Regole operative per agenti AI che operano su questo repository.
 
 ---
 
-## Stack tecnologico
+## Contesto
+- **Tipo**: Backoffice tracciabilità agricola
+- **Stack**: NestJS + React + TypeScript + Prisma
+- **Package manager**: `pnpm` (mai npm/yarn)
+
+---
+
+## Comandi
 
 ### Backend
-| Tecnologia | Versione | Note |
-|---|---|---|
-| NestJS | ^11 | Framework principale |
-| TypeScript | ^5.5 | strict mode obbligatorio |
-| Prisma | ^7.5 | ORM — usa sempre le typed queries |
-| SQLite | dev/test | PostgreSQL in produzione |
-| Passport.js | latest | Auth strategy |
-| JWT | latest | Access + Refresh token |
-| ioredis | latest | Client Redis per caching |
-| class-validator | latest | Validazione DTO |
-| class-transformer | latest | Serializzazione |
-| Swagger | @nestjs/swagger | Documentazione API |
+```bash
+cd apps/api
+pnpm run dev              # Dev server (watch mode)
+pnpm run build            # Build production
+pnpm run test             # Tutti i test
+pnpm run test:e2e         # E2E suite
+pnpm run test -- src/modules/users/users.service.spec.ts  # File singolo
+pnpm run test -- --testNamePattern="UsersService.create" # Per nome
+pnpm run test:watch       # Watch mode
+pnpm run test:cov         # Con coverage
+pnpm run lint             # Lint + fix automatico
+pnpm run check:all        # Quality gate completo
+```
 
 ### Frontend
-| Tecnologia | Versione | Note |
-|---|---|---|
-| React | ^19 | |
-| TypeScript | ^5.5 | strict mode |
-| TanStack Router | latest | Routing type-safe |
-| TanStack Query | latest | Server state management |
-| shadcn/ui | latest | Component library |
-| Tailwind CSS | ^4 | |
-
-### Tooling
-- **Package manager**: `pnpm` — non usare mai `npm` o `yarn`
-- **Linter**: ESLint (config condivisa nel monorepo)
-- **Formatter**: Prettier (config a radice)
-- **Git hooks**: Husky + lint-staged
-- **Container**: Docker + docker-compose
-
----
-
-## Regole generali per gli agenti
-
-### 1. TypeScript
-- Usa sempre `strict: true` — nessun `any` implicito
-- Non usare `as any` o `// @ts-ignore` senza commento motivazionale
-- Preferisci `interface` per i contratti pubblici, `type` per le unioni/intersezioni
-- Esporta sempre i tipi che potrebbero essere riusati
-
-### 2. Struttura file NestJS
-Segui sempre la struttura a moduli di NestJS:
-```
-src/
-  modules/
-    <nome-modulo>/
-      dto/
-        create-<nome>.dto.ts
-        update-<nome>.dto.ts
-      entities/
-        <nome>.entity.ts       # solo se necessario (di solito usa i Prisma types)
-      <nome>.controller.ts
-      <nome>.service.ts
-      <nome>.module.ts
-  common/
-    decorators/
-    filters/
-    guards/
-    interceptors/
-    pipes/
-  config/
-  prisma/
-    prisma.service.ts
-    prisma.module.ts
-  app.module.ts
-  main.ts
-```
-
-### 3. Prisma
-- **Non usare `prisma.$queryRaw`** salvo query estremamente complesse, e solo con parametri escaped
-- Usa sempre le typed relations — non fare join manuali
-- Le migration vanno create con `pnpm prisma migrate dev --name <nome-descrittivo>`
-- Lo schema si trova in `prisma/schema.prisma`
-- Ogni modifica allo schema deve essere accompagnata dalla relativa migration
-- Usa `prisma.$transaction` per operazioni multi-step
-
-### 4. API REST
-- Segui le convenzioni REST: risorse al plurale, verbi HTTP corretti
-- Ogni endpoint deve avere i decoratori `@ApiOperation`, `@ApiResponse` di Swagger
-- Usa sempre i DTO con class-validator per input e output
-- Restituisci sempre un formato di risposta coerente:
-  ```json
-  // Successo lista
-  { "data": [...], "meta": { "total": 0, "page": 1, "limit": 20 } }
-  // Successo singolo
-  { "data": { ... } }
-  // Errore
-  { "statusCode": 400, "message": "...", "error": "Bad Request" }
-  ```
-
-### 5. Autenticazione & Autorizzazione
-- Usa `JwtAuthGuard` come guard globale — le rotte pubbliche vanno decorate con `@Public()`
-- Non mettere mai logica di autorizzazione nei controller: usa guard o policy
-- I token JWT **non vanno mai loggati**
-- Usa sempre bcrypt con `saltRounds >= 12` per hashing password
-- Refresh token: ruota ad ogni utilizzo (rotation strategy)
-
-### 6. Caching Redis
-- Usa il `CacheModule` di NestJS wrappato su ioredis
-- Definisci le cache key in costanti, mai stringhe inline:
-  ```ts
-  // ✅
-  const CACHE_KEY = `user:${userId}:profile`;
-  // ❌
-  cache.get(`user_${id}`);
-  ```
-- Imposta sempre un TTL esplicito
-- Invalida la cache nelle operazioni di scrittura (POST/PUT/PATCH/DELETE)
-
-### 7. Error handling
-- Usa le eccezioni built-in di NestJS (`NotFoundException`, `BadRequestException`, ecc.)
-- Non fare mai `throw new Error(...)` nei service — usa le HttpException di Nest
-- Registra un `GlobalExceptionFilter` in `main.ts`
-- Non esporre stack trace in produzione
-
-### 8. Test
-- Ogni service **deve** avere il suo file `.spec.ts`
-- Usa `@nestjs/testing` e mock Prisma con `jest.mock` o `prisma-mock`
-- I test di integrazione (e2e) usano SQLite in memoria
-- Coverage minima: **70%** su service e controller
-
-### 9. Sicurezza
-- Abilita Helmet in `main.ts`
-- Abilita CORS con whitelist esplicita
-- Rate limiting su tutte le rotte auth (`@nestjs/throttler`)
-- Non committare mai `.env` — usa `.env.example` come riferimento
-- Valida e sanitizza sempre l'input con class-validator (nessun bypass)
-
-### 10. Logging
-- Usa il `Logger` di NestJS (non `console.log`)
-- Non loggare mai dati sensibili (password, token, PII)
-- In produzione il log level sarà `warn` o `error`
-
----
-
-## Comandi frequenti
-
 ```bash
-# Avvio dev
-pnpm run start:dev
-
-# Prisma
-pnpm prisma migrate dev --name <nome>
-pnpm prisma generate
-pnpm prisma studio
-
-# Test
-pnpm test
-pnpm test:e2e
-pnpm test:cov
-
-# Build
-pnpm build
-
-# Docker
-docker-compose up -d
-docker-compose down
+cd apps/web
+pnpm run dev              # Dev server (porta 5173)
+pnpm run build            # Build production
+pnpm run typecheck        # TypeScript check
+pnpm run lint             # Lint + fix
 ```
 
 ---
 
-## Cosa NON fare (mai)
+## Stile codice
 
-- ❌ Scrivere logica di business nei controller
-- ❌ Accedere a Prisma direttamente dai controller (passa sempre per il service)
-- ❌ Usare `console.log` in produzione
-- ❌ Hardcodare segreti o URL nel codice
-- ❌ Ignorare i type error di TypeScript
-- ❌ Fare commit senza che i test passino
-- ❌ Usare `npm` o `yarn` invece di `pnpm`
-- ❌ Scrivere SQL raw senza sanitizzazione
-- ❌ Rimuovere validazioni "per velocità"
+### Prettier config
+```json
+{ "semi": true, "singleQuote": true, "printWidth": 100, "tabWidth": 2 }
+```
+
+### Import order (Backend)
+1. `@nestjs/*` 2. Esterne 3. Prisma 4. Relativi 5. DTOs
+
+### Naming
+| Tipo | Convention | Esempio |
+|------|------------|---------|
+| Componenti | PascalCase | `ProductsPage` |
+| Hooks | use* | `useProducts` |
+| File | kebab-case | `products-page.tsx` |
+| Types | PascalCase | `UserResponseDto` |
+
+### Error handling
+- Backend: usa `HttpException` (NotFoundException, ConflictException)
+- Frontend: try/catch con `showError()` da `@/lib/toast`
+
+#### Standard errori API (obbligatorio)
+- Le risposte errore devono includere sempre `code` stabile (machine-readable)
+- Contratto errore: `{ statusCode, code, message, error, timestamp, path, requestId, details? }`
+- Backend:
+  - usa i codici centralizzati in `apps/api/src/common/errors/error-codes.ts`
+  - quando lanci eccezioni dominio, passa `{ code, message }` nel payload della `HttpException`
+  - non usare il testo `message` come contratto per il frontend
+- Frontend:
+  - non fare mapping hardcoded da messaggi inglesi
+  - usa `getApiErrorMessage()` / `translateErrorCode()` in `apps/web/src/lib/error-utils.ts` e `apps/web/src/lib/error-messages.ts`
+  - `message` e solo fallback, `code` e la fonte primaria per UX/localizzazione
+
+---
+
+## Cosa NON fare
+- ❌ Logica business nei controller
+- ❌ `console.log` in produzione
+- ❌ `ParseUUIDPipe` per CUID (usa `@IsString()`)
+- ❌ `new PrismaClient()` — usa DI con `PrismaService`
+- ❌ SQL raw senza sanitizzazione
+- ❌ Ignorare type error
+
+---
+
+## Backend (NestJS)
+
+### Regole
+- API REST: risorse plurali, formato `{ data }` (dettaglio) e `{ data, meta }` (liste)
+- Prisma: typed queries, no `$queryRaw`
+- Auth: `JwtAuthGuard` globale, `@Public()` per pubbliche
+- CUID per IDs, non UUID
+- Verifica duplicati prima di creare
+- Soft delete come default, restore e purge espliciti
+- Endpoints active/trash separati (no `includeDeleted`)
+- Purge con reason obbligatoria e blocco su referenze attive
+- Ruoli: `ADMIN` write, `OPERATOR` read-only sui moduli operativi
+
+### Operability
+- Health probes pubbliche:
+  - `GET /api/v1/health/liveness`
+  - `GET /api/v1/health/readiness`
+- Header `x-request-id` su ogni request
+- Logging strutturato HTTP con requestId
+- Shutdown hooks abilitati
+
+### Struttura
+```
+modules/<modulo>/
+├── dto/           # create-*.dto.ts, update-*.dto.ts
+├── <modulo>.controller.ts
+├── <modulo>.service.ts
+└── <modulo>.module.ts
+```
+
+---
+
+## Frontend (React)
+
+### Regole
+- TanStack Router: routing type-safe
+- TanStack Query: server state con `useQuery`/`useMutation`
+- shadcn/ui: componenti in `components/ui/`
+- Form: React Hook Form + Zod validation
+
+### Pattern CRUD
+```typescript
+// hooks/use-products.ts
+export function useProducts(filters = {}) {
+  return useQuery({
+    queryKey: ['products', filters],
+    queryFn: () => api.get('/products', { params: filters }).then(r => r.data),
+  });
+}
+```
+
+### Struttura
+```
+apps/web/src/
+├── components/ui/      # Button, Input, Dialog, Table
+├── components/layout/  # Sidebar, AppLayout
+├── contexts/           # AuthContext
+├── hooks/              # useProducts, useCreateProduct
+├── lib/                # api.ts, utils.ts, toast.ts
+└── pages/             # login-page.tsx, products-page.tsx
+```
+
+---
+
+## Accessibilità (WCAG 2.1 AA)
+
+- Skip link (`<a href="#main-content">`)
+- aria-label su bottoni senza testo
+- aria-describedby per errori form
+- scope="col" + aria-sort in tabelle
+- aria-busy per loading
+- lang="it" in HTML
+
+---
+
+## Checklist PR
+
+### Backend
+- [ ] TypeScript compila
+- [ ] Test passano
+- [ ] Nessun console.log
+- [ ] `pnpm run check:all` verde
+- [ ] Migrazione Prisma inclusa se cambia lo schema
+- [ ] Contratti API allineati (active/trash + restore/purge)
+
+### Frontend  
+- [ ] TypeScript compila (`pnpm run typecheck`)
+- [ ] Form con Zod validation
+- [ ] Loading states + toast feedback
+- [ ] Skip link presente
+- [ ] aria-label su icon button

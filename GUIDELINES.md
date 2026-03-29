@@ -128,6 +128,56 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 }
 ```
 
+### Redis - non usare require()
+Iniettare Redis come provider nel modulo, non istanziarlo manualmente:
+
+```ts
+// ❌ ERRATO - require dinamico
+private getRedisClient() {
+  const Redis = require('ioredis');
+  this.redisClient = new Redis({ ... });
+}
+
+// ✅ CORRETTO - iniettato via DI
+@Inject('REDIS_CLIENT') private readonly redis: Redis
+```
+
+### IDs: CUID vs UUID
+Prisma usa CUID (`@default(cuid())`), non UUID.
+
+```typescript
+// ✅ CORRETTO - usa @Param('id') senza pipe
+@Get(':id')
+findById(@Param('id') id: string) {}
+
+// ❌ ERRATO - ParseUUIDPipe fallisce sempre con CUID
+@Get(':id')
+findById(@Param('id', ParseUUIDPipe) id: string) {}
+```
+
+```typescript
+// ✅ CORRETTO - usa @IsString() per foreign keys
+@IsString()
+productId: string;
+
+// ❌ ERRATO - @IsUUID() fallisce sempre con CUID
+@IsUUID()
+productId: string;
+```
+
+### PrismaService via DI
+
+```typescript
+// ✅ CORRETTO - inietta via DI
+constructor(private readonly prisma: PrismaService) {}
+
+// ❌ ERRATO - crea nuova connessione al DB
+constructor() {
+  const adapter = new PrismaLibSql({ url: ... });
+  this.prisma = new PrismaClient({ adapter });
+}
+```
+
 ### Transazioni
 ```ts
 // Per operazioni multi-step usa sempre $transaction
@@ -159,12 +209,40 @@ login(@Body() dto: LoginDto) { ... }
 ### Struttura del payload JWT
 ```ts
 interface JwtPayload {
-  sub: string;    // userId
-  email: string;
+  sub: string;     // userId
+  username: string; // username dell'utente
   role: Role;
   iat: number;
   exp: number;
 }
+```
+
+### Autorizzazione (RBAC)
+Usa RolesGuard per proteggere gli endpoint:
+
+```ts
+// Creare il guard
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles) return true;
+    
+    const { user } = context.switchToHttp().getRequest();
+    return requiredRoles.includes(user.role);
+  }
+}
+
+// Usare il decorator
+@Roles(Role.ADMIN)
+@UseGuards(RolesGuard)
+@Post()
+create(@Body() dto: CreateUserDto) { ... }
 ```
 
 ### Decorator `@CurrentUser()`
@@ -377,7 +455,41 @@ describe('UsersService', () => {
 
 ---
 
-## 12. Docker Compose (sviluppo locale)
+## 12. Gestione errori
+
+- Usa le eccezioni built-in di NestJS (`NotFoundException`, `BadRequestException`, `ConflictException`, ecc.)
+- Non fare mai `throw new Error(...)` nei service — usa le HttpException di Nest
+- Registra un `GlobalExceptionFilter` in `main.ts`
+- Non esporre stack trace in produzione
+
+### Verifica duplicati
+Controlla sempre se esiste un record con lo stesso codice/unique field prima di creare o modificare:
+
+```typescript
+// ✅ CORRETTO - verifica prima
+const existing = await this.prisma.product.findUnique({ where: { code: dto.code } });
+if (existing) {
+  throw new ConflictException('Product with this code already exists');
+}
+
+// ❌ ERRATO - lascia che Prisma generi errore
+// Restituisce 500 Internal Server Error invece di 409 Conflict
+```
+
+### Token blacklist
+Quando implementi blacklist per token JWT, usa un hash crittografico irreversibile:
+
+```typescript
+import { createHash } from 'crypto';
+
+private hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+```
+
+---
+
+## 13. Docker Compose (sviluppo locale)
 
 ```yaml
 services:
@@ -406,3 +518,8 @@ SQLite non necessita di un container — il file `.db` è in `prisma/`.
 - [ ] `.env.example` aggiornato se sono state aggiunte variabili
 - [ ] Nessun segreto hardcodato
 - [ ] Cache invalidata nelle operazioni di scrittura
+- [ ] Nessun `ParseUUIDPipe` per campi CUID
+- [ ] Nessun `@IsUUID()` nei DTOs per foreign keys
+- [ ] Nessun `new PrismaClient()` nei service (usa `PrismaService`)
+- [ ] Endpoint amministrativi protetti con `@Roles('ADMIN')`
+- [ ] Nessun log di token o porzioni di secret

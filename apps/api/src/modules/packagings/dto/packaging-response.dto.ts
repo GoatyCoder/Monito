@@ -13,6 +13,18 @@ export class PackagingResponseDto {
   @ApiProperty({ nullable: true })
   description: string | null;
 
+  @ApiProperty({ nullable: true })
+  tareKg: number | null;
+
+  @ApiProperty({ nullable: true })
+  outerLengthMm: number | null;
+
+  @ApiProperty({ nullable: true })
+  outerWidthMm: number | null;
+
+  @ApiProperty({ nullable: true })
+  outerHeightMm: number | null;
+
   @ApiProperty()
   createdAt: Date;
 

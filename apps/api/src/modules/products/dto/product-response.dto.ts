@@ -18,6 +18,9 @@ export class ProductResponseDto {
 
   @ApiPropertyOptional()
   updatedAt: Date;
+
+  @ApiPropertyOptional()
+  deletedAt: Date | null;
 }
 
 export class ProductWithVarietiesResponseDto extends ProductResponseDto {

@@ -9,6 +9,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
 
   app.use(helmet());
 
@@ -40,11 +41,7 @@ async function bootstrap() {
       .setTitle('Monito API')
       .setDescription('Internal traceability application for agricultural products')
       .setVersion('1.0')
-      .addSecurity('bearerAuth', {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-      })
+      .addBearerAuth()
       .addTag('auth', 'Authentication endpoints')
       .addTag('users', 'User management')
       .addTag('products', 'Agricultural products')
@@ -53,6 +50,7 @@ async function bootstrap() {
       .addTag('processed-products', 'Processed/packaged products')
       .addTag('packagings', 'Packaging materials')
       .addTag('pallets', 'Pallet management')
+      .addTag('health', 'Liveness and readiness probes')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

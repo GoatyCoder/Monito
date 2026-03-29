@@ -27,6 +27,7 @@ describe('ProductsService', () => {
     prisma = {
       product: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -66,7 +67,7 @@ describe('ProductsService', () => {
     const createDto = { code: 'UVA', name: 'Uva da tavola' };
 
     it('should create a new product', async () => {
-      prisma.product.findUnique.mockResolvedValue(null);
+      prisma.product.findFirst.mockResolvedValue(null);
       prisma.product.create.mockResolvedValue(mockProduct);
 
       const result = await service.create(createDto);
@@ -78,7 +79,7 @@ describe('ProductsService', () => {
     });
 
     it('should throw ConflictException if code exists', async () => {
-      prisma.product.findUnique.mockResolvedValue(mockProduct);
+      prisma.product.findFirst.mockResolvedValue(mockProduct);
 
       await expect(service.create(createDto)).rejects.toThrow(ConflictException);
     });
@@ -89,10 +90,25 @@ describe('ProductsService', () => {
       prisma.product.findMany.mockResolvedValue([mockProduct]);
       prisma.product.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ page: 1, limit: 20 }, { includeDeleted: false });
+      const result = await service.findAll({ page: 1, limit: 20 });
 
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
+    });
+  });
+
+  describe('findAllActive', () => {
+    it('should return all active products without pagination', async () => {
+      prisma.product.findMany.mockResolvedValue([mockProduct]);
+
+      const result = await service.findAllActive();
+
+      expect(prisma.product.findMany).toHaveBeenCalledWith({
+        where: { deletedAt: null },
+        orderBy: { name: 'asc' },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(mockProduct.id);
     });
   });
 
@@ -140,29 +156,56 @@ describe('ProductsService', () => {
 
       expect(prisma.product.update).toHaveBeenCalledWith({
         where: { id: 'product-id-1' },
-        data: { deletedAt: expect.any(Date) },
+        data: {
+          deletedAt: expect.any(Date),
+          code: expect.stringMatching(/^UVA_del_\d+$/),
+        },
       });
+    });
+
+    it('should keep renamed soft-delete code within 32 chars', async () => {
+      const longCodeProduct = { ...mockProduct, code: 'ABCDEFGHIJKLMN' };
+      prisma.product.findUnique.mockResolvedValue(longCodeProduct);
+      prisma.product.update.mockImplementation(async (args: { data: { code: string } }) => ({
+        ...longCodeProduct,
+        deletedAt: new Date(),
+        code: args.data.code,
+      }));
+
+      await service.delete('product-id-1');
+
+      const updateArgs = prisma.product.update.mock.calls[0][0];
+      expect(updateArgs.data.code.length).toBeLessThanOrEqual(32);
     });
   });
 
   describe('restore', () => {
     it('should restore deleted product', async () => {
-      const deletedProduct = { ...mockProduct, deletedAt: new Date() };
+      const deletedProduct = { ...mockProduct, code: 'UVA_del_1700000000000', deletedAt: new Date() };
       prisma.product.findUnique.mockResolvedValue(deletedProduct);
+      prisma.product.findFirst.mockResolvedValue(null);
       prisma.product.update.mockResolvedValue({ ...mockProduct, deletedAt: null });
 
       await service.restore('product-id-1');
 
       expect(prisma.product.update).toHaveBeenCalledWith({
         where: { id: 'product-id-1' },
-        data: { deletedAt: null },
+        data: { deletedAt: null, code: 'UVA' },
       });
     });
 
-    it('should throw NotFoundException if product not deleted', async () => {
+    it('should throw ConflictException if original code is used by active product', async () => {
+      const deletedProduct = { ...mockProduct, code: 'UVA_del_1700000000000', deletedAt: new Date() };
+      prisma.product.findUnique.mockResolvedValue(deletedProduct);
+      prisma.product.findFirst.mockResolvedValue({ ...mockProduct, id: 'product-id-2', code: 'UVA' });
+
+      await expect(service.restore('product-id-1')).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if product not deleted', async () => {
       prisma.product.findUnique.mockResolvedValue(mockProduct);
 
-      await expect(service.restore('product-id-1')).rejects.toThrow(NotFoundException);
+      await expect(service.restore('product-id-1')).rejects.toThrow(ConflictException);
     });
   });
 });

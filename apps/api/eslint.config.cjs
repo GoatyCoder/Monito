@@ -6,7 +6,7 @@ module.exports = tseslint.config({
   languageOptions: {
     parser: require('@typescript-eslint/parser'),
     parserOptions: {
-      project: './tsconfig.json',
+      project: './tsconfig.eslint.json',
       sourceType: 'module',
       ecmaVersion: 2022,
     },

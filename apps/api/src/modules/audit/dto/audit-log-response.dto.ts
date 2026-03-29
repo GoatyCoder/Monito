@@ -7,6 +7,12 @@ export class AuditLogResponseDto {
   @ApiPropertyOptional()
   userId?: string | null;
 
+  @ApiPropertyOptional()
+  username?: string | null;
+
+  @ApiPropertyOptional()
+  userDisplayName?: string | null;
+
   @ApiProperty()
   entity: string;
 

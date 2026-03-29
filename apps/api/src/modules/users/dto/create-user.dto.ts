@@ -9,10 +9,11 @@ export class CreateUserDto {
   @Matches(/^[A-Za-z0-9]+$/, { message: 'Username must contain only letters and numbers' })
   username: string;
 
-  @ApiProperty({ minLength: 6 })
+  @ApiPropertyOptional({ minLength: 6, description: 'Optional. If missing, backend generates a temporary password' })
+  @IsOptional()
   @IsString()
   @MinLength(6)
-  password: string;
+  password?: string;
 
   @ApiProperty({ example: 'Mario', maxLength: 50 })
   @IsString()

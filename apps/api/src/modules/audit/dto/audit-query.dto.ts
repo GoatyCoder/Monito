@@ -1,6 +1,7 @@
-import { IsOptional, IsString, IsDateString, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsInt, Min, Max, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { AuditOperation } from './create-audit-log.dto';
 
 export class AuditQueryDto {
   @ApiPropertyOptional()
@@ -28,10 +29,25 @@ export class AuditQueryDto {
   @IsString()
   entityId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ enum: AuditOperation })
+  @IsOptional()
+  @IsEnum(AuditOperation)
+  operation?: AuditOperation;
+
+  @ApiPropertyOptional({ description: 'Comma-separated operations list' })
   @IsOptional()
   @IsString()
-  operation?: string;
+  operations?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated entities list' })
+  @IsOptional()
+  @IsString()
+  entities?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated user IDs list' })
+  @IsOptional()
+  @IsString()
+  userIds?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -47,4 +63,9 @@ export class AuditQueryDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @ApiPropertyOptional({ enum: ['timestamp_desc', 'timestamp_asc'], default: 'timestamp_desc' })
+  @IsOptional()
+  @IsString()
+  sort?: 'timestamp_desc' | 'timestamp_asc';
 }

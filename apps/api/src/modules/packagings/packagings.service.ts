@@ -1,14 +1,17 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePackagingDto, UpdatePackagingDto, PackagingResponseDto } from './dto';
-import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { getPaginationParams } from '../../common/dto/pagination.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 export const ENTITY_NAME = 'Packaging';
+const CODE_DB_MAX_LENGTH = 32;
+const CODE_SOFT_DELETE_SUFFIX_PREFIX = '_del_';
 
 @Injectable()
 export class PackagingsService {
@@ -20,12 +23,18 @@ export class PackagingsService {
   ) {}
 
   async create(dto: CreatePackagingDto, userId?: string): Promise<PackagingResponseDto> {
-    const existing = await this.prisma.packaging.findUnique({
-      where: { code: dto.code },
+    const existing = await this.prisma.packaging.findFirst({
+      where: {
+        code: dto.code,
+        deletedAt: null,
+      },
     });
 
     if (existing) {
-      throw new ConflictException('Packaging with this code already exists');
+      throw new ConflictException({
+        code: ErrorCodes.PACKAGING_ALREADY_EXISTS,
+        message: 'Packaging with this code already exists',
+      });
     }
 
     const packaging = await this.prisma.packaging.create({
@@ -50,20 +59,15 @@ export class PackagingsService {
   }
 
   async findAll(
-    paginationDto: PaginationDto,
-    filters: QueryFiltersDto,
+    dto: ListQueryDto,
   ): Promise<PaginatedResponse<PackagingResponseDto>> {
-    const { skip, take } = getPaginationParams(paginationDto);
-    const where: Prisma.PackagingWhereInput = {};
+    const { skip, take } = getPaginationParams(dto);
+    const where: Prisma.PackagingWhereInput = { deletedAt: null };
 
-    if (!filters.includeDeleted) {
-      where.deletedAt = null;
-    }
-
-    if (filters.search) {
+    if (dto.search) {
       where.OR = [
-        { code: { contains: filters.search } },
-        { name: { contains: filters.search } },
+        { code: { contains: dto.search } },
+        { name: { contains: dto.search } },
       ];
     }
 
@@ -81,21 +85,78 @@ export class PackagingsService {
       data: packagings.map((p) => this.toResponse(p)),
       meta: {
         total,
-        page: paginationDto.page ?? 1,
-        limit: paginationDto.limit ?? 20,
-        totalPages: Math.ceil(total / (paginationDto.limit ?? 20)),
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
       },
     };
   }
 
-  async findById(id: string, includeDeleted = false): Promise<PackagingResponseDto> {
-    const where: Prisma.PackagingWhereUniqueInput = { id };
+  async findAllActive(): Promise<PackagingResponseDto[]> {
+    const packagings = await this.prisma.packaging.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+
+    return packagings.map((packaging) => this.toResponse(packaging));
+  }
+
+  async findDeleted(
+    dto: ListQueryDto,
+  ): Promise<PaginatedResponse<PackagingResponseDto>> {
+    const { skip, take } = getPaginationParams(dto);
+    const where: Prisma.PackagingWhereInput = { deletedAt: { not: null } };
+
+    if (dto.search) {
+      where.OR = [{ code: { contains: dto.search } }, { name: { contains: dto.search } }];
+    }
+
+    const [packagings, total] = await this.prisma.$transaction([
+      this.prisma.packaging.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.packaging.count({ where }),
+    ]);
+
+    return {
+      data: packagings.map((p) => this.toResponse(p)),
+      meta: {
+        total,
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
+      },
+    };
+  }
+
+  async findById(id: string): Promise<PackagingResponseDto> {
     const packaging = await this.prisma.packaging.findUnique({
-      where: includeDeleted ? where : { ...where, deletedAt: null },
+      where: { id, deletedAt: null },
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
+    }
+
+    return this.toResponse(packaging);
+  }
+
+  async findDeletedById(id: string): Promise<PackagingResponseDto> {
+    const packaging = await this.prisma.packaging.findUnique({
+      where: { id, deletedAt: { not: null } },
+    });
+
+    if (!packaging) {
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Soft-deleted packaging with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(packaging);
@@ -107,15 +168,25 @@ export class PackagingsService {
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
     if (dto.code && dto.code !== packaging.code) {
-      const existing = await this.prisma.packaging.findUnique({
-        where: { code: dto.code },
+      const existing = await this.prisma.packaging.findFirst({
+        where: {
+          code: dto.code,
+          deletedAt: null,
+          NOT: { id },
+        },
       });
       if (existing) {
-        throw new ConflictException('Packaging with this code already exists');
+        throw new ConflictException({
+          code: ErrorCodes.PACKAGING_ALREADY_EXISTS,
+          message: 'Packaging with this code already exists',
+        });
       }
     }
 
@@ -139,46 +210,45 @@ export class PackagingsService {
     return this.toResponse(updated);
   }
 
-  async delete(id: string, force = false, userId?: string): Promise<void> {
+  async delete(id: string, userId?: string): Promise<void> {
     const packaging = await this.prisma.packaging.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      const deletedPackaging = await this.prisma.packaging.findUnique({ where: { id } });
+      if (deletedPackaging?.deletedAt) {
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `Packaging with ID ${id} is already deleted`,
+        });
+      }
+
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
-    if (force) {
-      await this.prisma.packaging.delete({
-        where: { id },
-      });
+    const oldValue = this.toResponse(packaging);
+    const deletedCode = this.buildSoftDeletedCode(packaging.code);
+    await this.prisma.packaging.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        code: deletedCode,
+      },
+    });
 
-      this.logger.log(`Packaging hard deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.HARD_DELETE,
-        oldValue: this.toResponse(packaging) as unknown as Record<string, unknown>,
-      });
-    } else {
-      const oldValue = this.toResponse(packaging);
-      await this.prisma.packaging.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      });
+    this.logger.log(`Packaging soft deleted: ${id}`);
 
-      this.logger.log(`Packaging soft deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.SOFT_DELETE,
-        oldValue: oldValue as unknown as Record<string, unknown>,
-      });
-    }
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.SOFT_DELETE,
+      oldValue: oldValue as unknown as Record<string, unknown>,
+    });
   }
 
   async restore(id: string, userId?: string): Promise<PackagingResponseDto> {
@@ -187,16 +257,41 @@ export class PackagingsService {
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
     if (!packaging.deletedAt) {
-      throw new NotFoundException(`Packaging with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Packaging with ID ${id} is not deleted`,
+      });
+    }
+
+    const originalCode = this.extractOriginalCode(packaging.code);
+    const activeWithOriginalCode = await this.prisma.packaging.findFirst({
+      where: {
+        code: originalCode,
+        deletedAt: null,
+        NOT: { id },
+      },
+    });
+
+    if (activeWithOriginalCode) {
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Cannot restore packaging with ID ${id}: code ${originalCode} is already used by an active packaging`,
+      });
     }
 
     const updated = await this.prisma.packaging.update({
       where: { id },
-      data: { deletedAt: null },
+      data: {
+        deletedAt: null,
+        code: originalCode,
+      },
     });
 
     this.logger.log(`Packaging restored: ${id}`);
@@ -213,15 +308,86 @@ export class PackagingsService {
     return this.toResponse(updated);
   }
 
-  private toResponse(packaging: { id: string; code: string; name: string; description: string | null; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {
+  async purge(id: string, reason: string, userId?: string): Promise<void> {
+    const packaging = await this.prisma.packaging.findUnique({ where: { id } });
+
+    if (!packaging) {
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
+    }
+
+    if (!packaging.deletedAt) {
+      throw new ConflictException({
+        code: ErrorCodes.PACKAGING_PURGE_REQUIRES_SOFT_DELETE,
+        message: `Packaging with ID ${id} must be soft-deleted before purge`,
+      });
+    }
+
+    const linkedPalletItems = await this.prisma.palletItem.count({ where: { packagingId: id } });
+    if (linkedPalletItems > 0) {
+      throw new ConflictException({
+        code: ErrorCodes.PACKAGING_PURGE_REFERENCED,
+        message: 'Cannot purge packaging because it is still referenced by pallet items',
+      });
+    }
+
+    await this.prisma.packaging.delete({ where: { id } });
+
+    this.logger.log(`Packaging purged: ${id}`);
+
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.HARD_DELETE,
+      oldValue: this.toResponse(packaging) as unknown as Record<string, unknown>,
+      newValue: { reason },
+    });
+  }
+
+  private toResponse(packaging: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    tareKg?: Prisma.Decimal | number | null;
+    outerLengthMm?: number | null;
+    outerWidthMm?: number | null;
+    outerHeightMm?: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+  }) {
     return {
       id: packaging.id,
       code: packaging.code,
       name: packaging.name,
       description: packaging.description,
+      tareKg: packaging.tareKg == null ? null : Number(packaging.tareKg),
+      outerLengthMm: packaging.outerLengthMm ?? null,
+      outerWidthMm: packaging.outerWidthMm ?? null,
+      outerHeightMm: packaging.outerHeightMm ?? null,
       createdAt: packaging.createdAt,
       updatedAt: packaging.updatedAt,
       deletedAt: packaging.deletedAt ?? null,
     };
+  }
+
+  private buildSoftDeletedCode(code: string): string {
+    const suffix = `${CODE_SOFT_DELETE_SUFFIX_PREFIX}${Date.now()}`;
+    const originalMaxLength = CODE_DB_MAX_LENGTH - suffix.length;
+    const safeCode = code.slice(0, originalMaxLength);
+    return `${safeCode}${suffix}`;
+  }
+
+  private extractOriginalCode(code: string): string {
+    const markerIndex = code.indexOf(CODE_SOFT_DELETE_SUFFIX_PREFIX);
+    if (markerIndex < 0) {
+      return code;
+    }
+
+    return code.slice(0, markerIndex);
   }
 }

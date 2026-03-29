@@ -1,14 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsNumber, IsOptional, IsString, IsUUID, ValidateNested, Min, MaxLength } from 'class-validator';
+import { IsArray, IsNumber, IsOptional, IsString, ValidateNested, Min, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PalletItemDto {
   @ApiProperty()
-  @IsUUID()
+  @IsString()
   processedProductId: string;
 
   @ApiProperty()
-  @IsUUID()
+  @IsString()
   packagingId: string;
 
   @ApiProperty({ minimum: 1 })
@@ -19,7 +19,7 @@ export class PalletItemDto {
 
 export class CreatePalletDto {
   @ApiProperty()
-  @IsUUID()
+  @IsString()
   fieldLotId: string;
 
   @ApiProperty({ type: [PalletItemDto] })
@@ -36,7 +36,7 @@ export class CreatePalletDto {
 
   @ApiPropertyOptional({ minimum: 0 })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
   netWeightKg?: number;
 }

@@ -1,0 +1,24 @@
+{
+  "name": "@monito/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./product": "./src/product.ts",
+    "./variety": "./src/variety.ts",
+    "./packaging": "./src/packaging.ts",
+    "./processed-product": "./src/processed-product.ts",
+    "./field-lot": "./src/field-lot.ts",
+    "./user": "./src/user.ts",
+    "./pallet": "./src/pallet.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

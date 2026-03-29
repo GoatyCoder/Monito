@@ -1,11 +1,21 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, Matches, IsNumber, Min, Length } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Length,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateProcessedProductDto {
-  @ApiPropertyOptional({ example: 'CEST10X500', maxLength: 32 })
+  @ApiPropertyOptional({ example: 'CEST10X500', maxLength: 14 })
   @IsOptional()
   @IsString()
-  @MaxLength(32)
+  @MaxLength(14)
   @Matches(/^[A-Za-z0-9]+$/, { message: 'Code must contain only letters and numbers' })
   code?: string;
 
@@ -27,9 +37,30 @@ export class UpdateProcessedProductDto {
   @Matches(/^[0-9]{13}$/, { message: 'EAN must be exactly 13 digits' })
   ean?: string;
 
-  @ApiPropertyOptional({ example: 0.5, minimum: 0 })
+  @ApiPropertyOptional({ example: 0.5, minimum: 0.001 })
   @IsOptional()
-  @IsNumber()
-  @Min(0)
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @IsPositive()
   weightPerBoxKg?: number;
+
+  @ApiPropertyOptional({ type: [String], description: 'Allowed product IDs (OR rule with subtype/variety)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  allowedProductIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Allowed product subtype IDs (OR rule with product/variety)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  allowedSubtypeIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Allowed variety IDs (OR rule with product/subtype)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  allowedVarietyIds?: string[];
 }

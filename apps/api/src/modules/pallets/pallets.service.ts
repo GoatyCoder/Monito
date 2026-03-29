@@ -1,12 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto, PalletItemResponseDto } from './dto';
-import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.dto';
-import { QueryFiltersDto } from '../../common/dto/query-filters.dto';
+import { CreatePalletDto, UpdatePalletDto, PalletResponseDto, PalletWithDetailsResponseDto } from './dto';
+import { getPaginationParams } from '../../common/dto/pagination.dto';
+import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 export const ENTITY_NAME = 'Pallet';
 
@@ -21,47 +22,103 @@ export class PalletsService {
 
   async create(dto: CreatePalletDto, userId: string): Promise<PalletResponseDto> {
     if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Pallet must have at least one item');
+      throw new BadRequestException({
+        code: ErrorCodes.PALLET_BAD_REQUEST,
+        message: 'Pallet must have at least one item',
+      });
     }
 
     const fieldLot = await this.prisma.fieldLot.findUnique({
-      where: { id: dto.fieldLotId },
+      where: { id: dto.fieldLotId, deletedAt: null },
+      include: {
+        variety: {
+          select: {
+            id: true,
+            productId: true,
+            productSubtypeId: true,
+          },
+        },
+      },
     });
 
     if (!fieldLot) {
-      throw new NotFoundException(`Field lot with ID ${dto.fieldLotId} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `Field lot with ID ${dto.fieldLotId} not found`,
+      });
     }
 
+    const processedProductIds = [...new Set(dto.items.map((i) => i.processedProductId))];
+    const packagingIds = [...new Set(dto.items.map((i) => i.packagingId))];
+
     const processedProducts = await this.prisma.processedProduct.findMany({
-      where: { id: { in: dto.items.map((i) => i.processedProductId) } },
+      where: { id: { in: processedProductIds }, deletedAt: null },
+      include: {
+        allowedProducts: true,
+        allowedSubtypes: true,
+        allowedVarieties: true,
+      },
     });
 
-    if (processedProducts.length !== dto.items.length) {
-      throw new NotFoundException('One or more processed products not found');
+    if (processedProducts.length !== processedProductIds.length) {
+      throw new NotFoundException({
+        code: ErrorCodes.PROCESSED_PRODUCT_NOT_FOUND,
+        message: 'One or more processed products not found',
+      });
     }
 
     const packagings = await this.prisma.packaging.findMany({
-      where: { id: { in: dto.items.map((i) => i.packagingId) } },
+      where: { id: { in: packagingIds }, deletedAt: null },
     });
 
-    if (packagings.length !== dto.items.length) {
-      throw new NotFoundException('One or more packagings not found');
+    if (packagings.length !== packagingIds.length) {
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: 'One or more packagings not found',
+      });
+    }
+
+    for (const processedProduct of processedProducts) {
+      if (
+        !this.isProcessedProductAllowedForFieldLot(
+          processedProduct,
+          fieldLot.variety.productId,
+          fieldLot.variety.productSubtypeId,
+          fieldLot.variety.id,
+        )
+      ) {
+        throw new BadRequestException(
+          {
+            code: ErrorCodes.PALLET_BAD_REQUEST,
+            message: `Processed product ${processedProduct.code} is not allowed for the selected field lot variety`,
+          },
+        );
+      }
     }
 
     const palletNumber = await this.generatePalletNumber();
 
-    const processedProductsMap = new Map<string, Prisma.ProcessedProductGetPayload<{}>>(processedProducts.map((pp) => [pp.id, pp]));
-    
+    const processedProductsMap = new Map<string, Prisma.ProcessedProductGetPayload<{}>>(
+      processedProducts.map((pp) => [pp.id, pp]),
+    );
+
     const totalWeight = dto.items.reduce((sum, item) => {
       const pp = processedProductsMap.get(item.processedProductId);
-      return sum + (pp?.weightPerBoxKg ?? 0) * item.quantity;
-    }, 0);
+      if (!pp) {
+        return sum;
+      }
+
+      return sum.plus(this.asDecimal(pp.weightPerBoxKg).mul(item.quantity));
+    }, new Prisma.Decimal(0));
+
+    const netWeight =
+      dto.netWeightKg !== undefined ? this.asDecimal(dto.netWeightKg) : totalWeight;
 
     const pallet = await this.prisma.$transaction(async (tx) => {
       const created = await tx.pallet.create({
         data: {
           palletNumber,
-          netWeightKg: dto.netWeightKg ?? totalWeight,
+          netWeightKg: netWeight,
           fieldLotId: dto.fieldLotId,
           createdBy: dto.createdBy ?? userId,
           items: {
@@ -69,7 +126,7 @@ export class PalletsService {
               const pp = processedProductsMap.get(item.processedProductId)!;
               return {
                 quantity: item.quantity,
-                weightKg: pp.weightPerBoxKg * item.quantity,
+                weightKg: this.asDecimal(pp.weightPerBoxKg).mul(item.quantity),
                 processedProductId: item.processedProductId,
                 packagingId: item.packagingId,
               };
@@ -95,39 +152,39 @@ export class PalletsService {
       entity: ENTITY_NAME,
       entityId: pallet.id,
       operation: AuditOperation.CREATE,
-      newValue: { palletNumber, netWeightKg: pallet.netWeightKg, fieldLotId: dto.fieldLotId, items: dto.items } as unknown as Record<string, unknown>,
+      newValue: {
+        palletNumber,
+        netWeightKg: this.decimalToNumber(pallet.netWeightKg),
+        fieldLotId: dto.fieldLotId,
+        items: dto.items,
+      } as unknown as Record<string, unknown>,
     });
 
     return this.toResponseWithItems(pallet);
   }
 
   async findAll(
-    paginationDto: PaginationDto,
-    filters: QueryFiltersDto,
+    dto: ListQueryDto,
   ): Promise<PaginatedResponse<PalletResponseDto>> {
-    const { skip, take } = getPaginationParams(paginationDto);
-    const where: Prisma.PalletWhereInput = {};
+    const { skip, take } = getPaginationParams(dto);
+    const where: Prisma.PalletWhereInput = { deletedAt: null };
 
-    if (!filters.includeDeleted) {
-      where.deletedAt = null;
+    if (dto.search) {
+      where.palletNumber = { contains: dto.search };
     }
 
-    if (filters.search) {
-      where.palletNumber = { contains: filters.search };
-    }
-
-    if (filters.dateFrom || filters.dateTo) {
+    if (dto.dateFrom || dto.dateTo) {
       where.createdAt = {};
-      if (filters.dateFrom) {
-        where.createdAt.gte = new Date(filters.dateFrom);
+      if (dto.dateFrom) {
+        where.createdAt.gte = new Date(dto.dateFrom);
       }
-      if (filters.dateTo) {
-        where.createdAt.lte = new Date(filters.dateTo);
+      if (dto.dateTo) {
+        where.createdAt.lte = new Date(dto.dateTo);
       }
     }
 
-    if (filters.createdBy) {
-      where.createdBy = filters.createdBy;
+    if (dto.createdBy) {
+      where.createdBy = dto.createdBy;
     }
 
     const [pallets, total] = await this.prisma.$transaction([
@@ -147,17 +204,66 @@ export class PalletsService {
       data: pallets.map((p) => this.toResponseWithItems(p)),
       meta: {
         total,
-        page: paginationDto.page ?? 1,
-        limit: paginationDto.limit ?? 20,
-        totalPages: Math.ceil(total / (paginationDto.limit ?? 20)),
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
       },
     };
   }
 
-  async findById(id: string, includeDeleted = false): Promise<PalletWithDetailsResponseDto> {
-    const where: Prisma.PalletWhereUniqueInput = { id };
+  async findDeleted(
+    dto: ListQueryDto,
+  ): Promise<PaginatedResponse<PalletResponseDto>> {
+    const { skip, take } = getPaginationParams(dto);
+    const where: Prisma.PalletWhereInput = {
+      deletedAt: { not: null },
+    };
+
+    if (dto.search) {
+      where.palletNumber = { contains: dto.search };
+    }
+
+    if (dto.dateFrom || dto.dateTo) {
+      where.createdAt = {};
+      if (dto.dateFrom) {
+        where.createdAt.gte = new Date(dto.dateFrom);
+      }
+      if (dto.dateTo) {
+        where.createdAt.lte = new Date(dto.dateTo);
+      }
+    }
+
+    if (dto.createdBy) {
+      where.createdBy = dto.createdBy;
+    }
+
+    const [pallets, total] = await this.prisma.$transaction([
+      this.prisma.pallet.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: true,
+        },
+      }),
+      this.prisma.pallet.count({ where }),
+    ]);
+
+    return {
+      data: pallets.map((p) => this.toResponseWithItems(p)),
+      meta: {
+        total,
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: Math.ceil(total / (dto.limit ?? 20)),
+      },
+    };
+  }
+
+  async findById(id: string): Promise<PalletWithDetailsResponseDto> {
     const pallet = await this.prisma.pallet.findUnique({
-      where: includeDeleted ? where : { ...where, deletedAt: null },
+      where: { id, deletedAt: null },
       include: {
         fieldLot: {
           include: {
@@ -178,7 +284,42 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
+    }
+
+    return this.toResponseWithDetails(pallet);
+  }
+
+  async findDeletedById(id: string): Promise<PalletWithDetailsResponseDto> {
+    const pallet = await this.prisma.pallet.findUnique({
+      where: { id, deletedAt: { not: null } },
+      include: {
+        fieldLot: {
+          include: {
+            variety: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+        items: {
+          include: {
+            processedProduct: true,
+            packaging: true,
+          },
+        },
+      },
+    });
+
+    if (!pallet) {
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Soft-deleted pallet with ID ${id} not found`,
+      });
     }
 
     return this.toResponseWithDetails(pallet);
@@ -207,7 +348,10 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with number ${palletNumber} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with number ${palletNumber} not found`,
+      });
     }
 
     return this.toResponseWithDetails(pallet);
@@ -220,7 +364,10 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(pallet);
@@ -244,46 +391,41 @@ export class PalletsService {
     return this.toResponseWithItems(updated);
   }
 
-  async delete(id: string, force = false, userId?: string): Promise<void> {
+  async delete(id: string, userId?: string): Promise<void> {
     const pallet = await this.prisma.pallet.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      const deletedPallet = await this.prisma.pallet.findUnique({ where: { id } });
+      if (deletedPallet?.deletedAt) {
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `Pallet with ID ${id} is already deleted`,
+        });
+      }
+
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
-    if (force) {
-      await this.prisma.pallet.delete({
-        where: { id },
-      });
+    const oldValue = this.toResponse(pallet);
+    await this.prisma.pallet.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
 
-      this.logger.log(`Pallet hard deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.HARD_DELETE,
-        oldValue: this.toResponse(pallet) as unknown as Record<string, unknown>,
-      });
-    } else {
-      const oldValue = this.toResponse(pallet);
-      await this.prisma.pallet.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      });
+    this.logger.log(`Pallet soft deleted: ${id}`);
 
-      this.logger.log(`Pallet soft deleted: ${id}`);
-      
-      this.auditQueue.push({
-        userId,
-        entity: ENTITY_NAME,
-        entityId: id,
-        operation: AuditOperation.SOFT_DELETE,
-        oldValue: oldValue as unknown as Record<string, unknown>,
-      });
-    }
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.SOFT_DELETE,
+      oldValue: oldValue as unknown as Record<string, unknown>,
+    });
   }
 
   async restore(id: string, userId?: string): Promise<PalletResponseDto> {
@@ -292,11 +434,17 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
     if (!pallet.deletedAt) {
-      throw new NotFoundException(`Pallet with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Pallet with ID ${id} is not deleted`,
+      });
     }
 
     const updated = await this.prisma.pallet.update({
@@ -317,6 +465,37 @@ export class PalletsService {
     });
 
     return this.toResponseWithItems(updated);
+  }
+
+  async purge(id: string, reason: string, userId?: string): Promise<void> {
+    const pallet = await this.prisma.pallet.findUnique({ where: { id } });
+
+    if (!pallet) {
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
+    }
+
+    if (!pallet.deletedAt) {
+      throw new ConflictException({
+        code: ErrorCodes.PALLET_PURGE_REQUIRES_SOFT_DELETE,
+        message: `Pallet with ID ${id} must be soft-deleted before purge`,
+      });
+    }
+
+    await this.prisma.pallet.delete({ where: { id } });
+
+    this.logger.log(`Pallet purged: ${id}`);
+
+    this.auditQueue.push({
+      userId,
+      entity: ENTITY_NAME,
+      entityId: id,
+      operation: AuditOperation.HARD_DELETE,
+      oldValue: this.toResponse(pallet) as unknown as Record<string, unknown>,
+      newValue: { reason },
+    });
   }
 
   private async generatePalletNumber(): Promise<string> {
@@ -347,11 +526,20 @@ export class PalletsService {
     return Math.floor(diff / oneDay);
   }
 
-  private toResponse(pallet: { id: string; palletNumber: string; netWeightKg: number; fieldLotId: string; createdBy: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null }) {
+  private toResponse(pallet: {
+    id: string;
+    palletNumber: string;
+    netWeightKg: Prisma.Decimal | number;
+    fieldLotId: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+  }) {
     return {
       id: pallet.id,
       palletNumber: pallet.palletNumber,
-      netWeightKg: pallet.netWeightKg,
+      netWeightKg: this.decimalToNumber(pallet.netWeightKg),
       fieldLotId: pallet.fieldLotId,
       createdBy: pallet.createdBy,
       createdAt: pallet.createdAt,
@@ -360,14 +548,51 @@ export class PalletsService {
     };
   }
 
-  private toResponseWithItems(pallet: { id: string; palletNumber: string; netWeightKg: number; fieldLotId: string; createdBy: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null; items: { id: string; quantity: number; weightKg: number; processedProductId: string; packagingId: string; createdAt: Date }[] }) {
+  private toResponseWithItems(pallet: {
+    id: string;
+    palletNumber: string;
+    netWeightKg: Prisma.Decimal | number;
+    fieldLotId: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+    items?: {
+      id: string;
+      quantity: number;
+      weightKg: Prisma.Decimal | number;
+      processedProductId: string;
+      packagingId: string;
+      createdAt: Date;
+    }[];
+  }) {
     return {
       ...this.toResponse(pallet),
-      items: pallet.items.map((item) => this.toItemResponse(item)),
+      items: (pallet.items ?? []).map((item) => this.toItemResponse(item)),
     };
   }
 
-  private toResponseWithDetails(pallet: { id: string; palletNumber: string; netWeightKg: number; fieldLotId: string; createdBy: string; createdAt: Date; updatedAt: Date; deletedAt?: Date | null; fieldLot: unknown; items: (PalletItemResponseDto & { processedProduct: unknown; packaging: unknown })[] }) {
+  private toResponseWithDetails(pallet: {
+    id: string;
+    palletNumber: string;
+    netWeightKg: Prisma.Decimal | number;
+    fieldLotId: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date | null;
+    fieldLot: unknown;
+    items: {
+      id: string;
+      quantity: number;
+      weightKg: Prisma.Decimal | number;
+      processedProductId: string;
+      packagingId: string;
+      createdAt: Date;
+      processedProduct: unknown;
+      packaging: unknown;
+    }[];
+  }) {
     return {
       ...this.toResponse(pallet),
       fieldLot: pallet.fieldLot,
@@ -379,14 +604,65 @@ export class PalletsService {
     };
   }
 
-  private toItemResponse(item: { id: string; quantity: number; weightKg: number; processedProductId: string; packagingId: string; createdAt: Date }) {
+  private toItemResponse(item: {
+    id: string;
+    quantity: number;
+    weightKg: Prisma.Decimal | number;
+    processedProductId: string;
+    packagingId: string;
+    createdAt: Date;
+  }) {
     return {
       id: item.id,
       quantity: item.quantity,
-      weightKg: item.weightKg,
+      weightKg: this.decimalToNumber(item.weightKg),
       processedProductId: item.processedProductId,
       packagingId: item.packagingId,
       createdAt: item.createdAt,
     };
+  }
+
+  private asDecimal(value: Prisma.Decimal | number): Prisma.Decimal {
+    return Prisma.Decimal.isDecimal(value) ? value : new Prisma.Decimal(value);
+  }
+
+  private decimalToNumber(value: Prisma.Decimal | number): number {
+    return Prisma.Decimal.isDecimal(value) ? value.toNumber() : value;
+  }
+
+  private isProcessedProductAllowedForFieldLot(
+    processedProduct: {
+      allowedProducts?: { productId: string }[];
+      allowedSubtypes?: { productSubtypeId: string }[];
+      allowedVarieties?: { varietyId: string }[];
+    },
+    productId: string,
+    productSubtypeId: string | null,
+    varietyId: string,
+  ): boolean {
+    const allowedProducts = processedProduct.allowedProducts ?? [];
+    const allowedSubtypes = processedProduct.allowedSubtypes ?? [];
+    const allowedVarieties = processedProduct.allowedVarieties ?? [];
+
+    if (allowedProducts.length === 0 && allowedSubtypes.length === 0 && allowedVarieties.length === 0) {
+      return true;
+    }
+
+    if (allowedProducts.some((entry) => entry.productId === productId)) {
+      return true;
+    }
+
+    if (
+      productSubtypeId &&
+      allowedSubtypes.some((entry) => entry.productSubtypeId === productSubtypeId)
+    ) {
+      return true;
+    }
+
+    if (allowedVarieties.some((entry) => entry.varietyId === varietyId)) {
+      return true;
+    }
+
+    return false;
   }
 }

@@ -1,146 +1,240 @@
 # Monito API
 
-Backend NestJS per il sistema di tracciabilità.
+Backend NestJS per il backoffice di tracciabilita agricola.
 
-## Setup Locale
+## Scopo
+
+Questo servizio gestisce:
+
+- autenticazione JWT con refresh token
+- autorizzazioni RBAC (`ADMIN`, `OPERATOR`, `USER`)
+- CRUD dominio (prodotti, varieta, lotti, lavorati, imballaggi, pedane)
+- audit trail applicativo
+- health probes operative
+
+## URL principali
+
+- API base (default): `http://localhost:3000/api/v1`
+- Swagger (solo non-production): `http://localhost:3000/api/v1/docs`
+- Health:
+  - `GET /api/v1/health/liveness`
+  - `GET /api/v1/health/readiness`
+
+## Quick Start locale
+
+Esegui dalla root del monorepo:
 
 ```bash
-# Installa dipendenze dalla root del monorepo
 pnpm install
+```
 
-# Copia le variabili ambiente
-cp .env.example .env
+Configura le variabili ambiente (obbligatorie almeno):
 
-# Avvia Redis (obbligatorio per token blacklist)
-docker-compose up -d
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
 
-# Avvia il server di sviluppo
+Esempio minimo (`apps/api/.env`):
+
+```env
+NODE_ENV=development
+PORT=3000
+API_PREFIX=api/v1
+DATABASE_URL="file:./prisma/dev.db"
+JWT_SECRET="replace_with_min_32_chars_secret_value"
+JWT_REFRESH_SECRET="replace_with_min_32_chars_refresh_secret"
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+REDIS_HOST=localhost
+REDIS_PORT=6379
+CORS_ORIGINS=http://localhost:5173
+```
+
+Avvio in sviluppo:
+
+```bash
+cd apps/api
 pnpm run dev
 ```
 
-Il server sarà disponibile su `http://localhost:3000/api/v1`
+## Comandi principali
+
+Da `apps/api`:
+
+```bash
+pnpm run dev
+pnpm run build
+pnpm run start:prod
+
+pnpm run lint
+pnpm run test
+pnpm run test:cov
+pnpm run test:e2e
+
+pnpm run prisma:generate
+pnpm run prisma:migrate
+pnpm run prisma:studio
+
+pnpm run check:all
+```
+
+`check:all` esegue il gate completo locale: lint + test + e2e + build + `nest info`.
+
+## Contratti API (regole definitive)
+
+- Envelope risposte:
+  - dettaglio: `{ data: ... }`
+  - lista non paginata: `{ data: [...] }`
+  - lista paginata: `{ data: [...], meta: { total, page, limit, totalPages } }`
+- Soft delete per risorse dominio via `DELETE /:id`
+- Restore via `POST /:id/restore`
+- Purge hard delete via `POST /:id/purge` con body `{ reason }`
+- Endpoints separati per cestino: `GET /resource/deleted` e `GET /resource/deleted/:id`
+- Endpoints lookup non paginati: `GET /resource/all` (solo record attivi)
+
+## Gestione utenti amministrativa
+
+Per il modulo utenti (`ADMIN`):
+
+- creazione utente con password temporanea: `POST /users` -> `{ user, temporaryPassword }`
+- update dati/ruolo: `PATCH /users/:id`
+- attiva/disattiva account: `PATCH /users/:id/status` con body `{ isActive }`
+- reset password con temporanea: `POST /users/:id/reset-password` -> `{ temporaryPassword }`
+
+Guard rail di sicurezza:
+
+- un admin non puo disattivare o eliminare il proprio account
+- non e consentito rimuovere/disattivare/eliminare l\'ultimo admin attivo
+
+Cambio password utente autenticato:
+
+- `POST /auth/change-password` con body `{ currentPassword, newPassword }`
+- al primo accesso con password temporanea, il flag `mustChangePassword` forza il cambio password
+- `POST /auth/verify-password` per verificare password in flussi lock-screen
+
+Login rapido postazioni condivise:
+
+- `POST /auth/recent-users/hints` accetta fino a 5 `userIds` e restituisce hint utente aggiornati (username/nome/cognome/avatar/stato)
+- lato backend viene aggiornato `lastLoginAt` a ogni `LOGIN_SUCCESS`
+
+## Audit log operativo
+
+Eventi principali tracciati:
+
+- CRUD anagrafiche (`CREATE`, `UPDATE`, `SOFT_DELETE`, `RESTORE`, `HARD_DELETE`)
+- autenticazione (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGOUT`, `PASSWORD_CHANGE`)
+- gestione utenti (`STATUS_CHANGE`, `RESET_PASSWORD`, update profilo/preferenze)
+
+Filtri audit disponibili su `GET /audit`:
+
+- filtri singoli: `entity`, `entityId`, `userId`, `operation`
+- filtri multipli CSV: `entities`, `userIds`, `operations`
+- range temporale: `startDate`, `endDate`
+- ordinamento: `sort=timestamp_desc|timestamp_asc`
+
+Comportamento date:
+
+- se `startDate`/`endDate` sono passate come `YYYY-MM-DD`, il backend applica automaticamente inizio/fine giornata (`00:00:00.000` / `23:59:59.999`)
+
+Nota: nelle risposte audit sono inclusi anche `username` e `userDisplayName` per una UI più leggibile, mantenendo `userId` come riferimento tecnico.
+
+## Endpoint lookup non paginati
+
+Per popolare combobox e selector lato frontend senza dipendere da `limit`/paginazione:
+
+- `GET /products/all`
+- `GET /products/:productId/subtypes/all`
+- `GET /varieties/all`
+- `GET /field-lots/all`
+- `GET /processed-products/all`
+- `GET /packagings/all`
+
+Tutti richiedono autenticazione e rispettano RBAC (`ADMIN`, `OPERATOR`).
+
+## Regola codici business e soft delete
+
+Per i codici alfanumerici di `products`, `varieties`, `processed-products`, `packagings`:
+
+- lunghezza massima lato API/input utente: `14`
+- lunghezza target lato persistenza: `32`
+- in soft delete il codice viene rinominato con suffisso `_del_<timestamp>` restando entro 32 caratteri
+- in restore viene ripristinato il codice originale; se quel codice e gia usato da un record attivo, restore risponde `409`
+
+Scope unicita codice:
+
+- `products`, `processed-products`, `packagings`: univoci globalmente
+- `product-subtypes`, `varieties`: univoci per `productId` (due prodotti diversi possono condividere lo stesso `code`)
+
+## Unita di misura e precisione
+
+- dimensioni: millimetri (`mm`) con campi interi
+- pesi: chilogrammi (`kg`) con precisione massima 3 decimali lato API
+
+## Origine lotti di campo
+
+- `FieldLot.originCountryCode` obbligatorio (ISO 3166-1 alpha-2)
+- per `originCountryCode = IT`, eventuali `originRegion`, `originProvince`, `originComune` sono validati contro codici ISTAT e coerenza gerarchica
+
+## Vincoli lavorati (ProcessedProduct)
+
+`ProcessedProduct` supporta vincoli opzionali multipli:
+
+- `allowedProductIds`
+- `allowedSubtypeIds`
+- `allowedVarietyIds`
+
+Regola applicata in creazione pallet: OR globale.
+
+- se non sono configurati vincoli, il lavorato e sempre consentito
+- se sono presenti, basta il match di uno tra prodotto/subtype/varieta
+
+## Campi imballaggi
+
+`Packaging` include i seguenti campi:
+
+- `tareKg` (tara in kg)
+- `outerLengthMm` (lunghezza esterna in mm)
+- `outerWidthMm` (larghezza esterna in mm)
+- `outerHeightMm` (altezza esterna in mm)
+
+## RBAC
+
+- `ADMIN`: lettura/scrittura completa
+- `OPERATOR`: sola lettura su risorse operative
+- `USER`: ruolo base non amministrativo
+
+Guard globale JWT attiva. Endpoints pubblici marcati con `@Public()`.
 
 ## Database
 
-### Sviluppo (SQLite)
+Schema Prisma in `apps/api/prisma/schema.prisma`.
 
-Il database SQLite viene creato automaticamente in `prisma/dev.db`.
+Note operative:
 
-```bash
-# Reset database (perde tutti i dati)
-pnpm prisma migrate reset --force
+- attualmente datasource configurato con provider `sqlite`
+- migrazioni in `apps/api/prisma/migrations/`
+- client generato in `apps/api/generated/prisma/client`
 
-# Crea nuova migrazione
-pnpm prisma migrate dev --name <nome-migrazione>
+Interpretazione esplicita: il backend attuale e configurato per SQLite/libSQL. Un deploy PostgreSQL richiede modifica del `datasource` Prisma e migrazione dedicata.
 
-# Apri Prisma Studio
-pnpm prisma studio
-```
+## Documentazione completa
 
-### Produzione (PostgreSQL)
+- API reference: `apps/api/docs/reference/api-endpoints.md`
+- Configurazione: `apps/api/docs/reference/configuration.md`
+- Schema database: `apps/api/docs/reference/database-schema.md`
+- Strategia test: `apps/api/docs/reference/testing.md`
+- Architettura e scelte: `apps/api/docs/explanation/backend-architecture.md`
+- Procedure operative: `apps/api/docs/how-to/operations.md`
+- Checklist go-live: `apps/api/docs/backend-go-live-checklist.md`
 
-Aggiorna la variabile `DATABASE_URL` nel file `.env`:
+## Note di sicurezza importanti
 
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/monito?schema=public"
-```
+- In `production` Redis e richiesto per revoca refresh token; se non disponibile, i flussi di revoca rispondono con errore (`503`).
+- `JWT_SECRET` e `JWT_REFRESH_SECRET` devono essere sempre impostati via ambiente.
 
-Esegui le migrazioni:
+## Note operative su readiness
 
-```bash
-pnpm prisma migrate deploy
-```
-
-## Seed Dati
-
-Per creare l'utente admin:
-
-```bash
-pnpm tsx src/seed.ts
-```
-
-## Test
-
-```bash
-# Unit tests
-pnpm test
-
-# Unit tests con watch
-pnpm test:watch
-
-# Coverage
-pnpm test:cov
-```
-
-### Coverage Minima
-
-- Services: **70%**
-- Controllers: **70%**
-
-## Build
-
-```bash
-# Build di produzione
-pnpm build
-
-# Avvia in produzione
-pnpm start:prod
-```
-
-## Struttura Code
-
-```
-src/
-├── modules/
-│   ├── auth/           # Autenticazione JWT
-│   ├── users/          # Gestione utenti
-│   ├── products/       # Prodotti agricoli
-│   ├── varieties/      # Varietà prodotti
-│   ├── field-lots/     # Lotti campo
-│   ├── processed-products/  # Prodotti lavorati
-│   ├── packagings/    # Imballaggi
-│   ├── pallets/       # Gestione pallet
-│   └── audit/         # Log audit
-├── common/
-│   ├── decorators/    # @CurrentUser, @Public
-│   ├── dto/           # DTO condivisi
-│   ├── filters/       # Exception filters
-│   ├── interceptors/  # Response transformers
-│   └── events/        # Audit queue
-├── config/            # Configurazione app
-└── prisma/           # Prisma service
-```
-
-## Validazione
-
-Tutti gli input sono validati con `class-validator`:
-
-- **Codici**: max 32 char, solo lettere e numeri
-- **Nomi**: max 100 char
-- **EAN**: esattamente 13 cifre
-- **Password**: minimo 6 caratteri
-
-## Security
-
-- Helmet.js per headers HTTP
-- Rate limiting (10 richieste/minuto)
-- JWT con refresh token
-- Token blacklist su Redis
-- Validazione input whitelist
-- CORS configurabile
-
-## Troubleshooting
-
-### Redis non disponibile
-Il server funziona anche senza Redis, ma il logout non revoca i token.
-
-### Errore "Module not found"
-```bash
-pnpm prisma generate
-```
-
-### Errore migrazioni
-```bash
-pnpm prisma migrate reset --force
-pnpm prisma generate
-```
+- `GET /health/readiness`:
+  - `200` se servizio pronto o degradato non bloccante
+  - `503` se non pronto
+- In `production`, Redis down rende readiness `503`.

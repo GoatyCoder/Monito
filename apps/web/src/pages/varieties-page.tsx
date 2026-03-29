@@ -16,6 +16,7 @@ import { useAllProducts } from '@/hooks/use-products';
 import { useProductSubtypesByProduct } from '@/hooks/use-product-subtypes';
 import { useAuth } from '@/contexts/auth-context';
 import { showError, showSuccess } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -176,8 +177,8 @@ export function VarietiesPage() {
         showSuccess('Varietà creata con successo');
       }
       handleCloseDialog();
-    } catch {
-      showError('Errore durante il salvataggio');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il salvataggio'));
     }
   };
 
@@ -187,8 +188,8 @@ export function VarietiesPage() {
       await deleteVariety.mutateAsync(deletingVariety.id);
       showSuccess('Varietà eliminata con successo');
       setDeletingVariety(null);
-    } catch {
-      showError('Errore durante l\'eliminazione');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione'));
     }
   };
 
@@ -196,8 +197,8 @@ export function VarietiesPage() {
     try {
       await restoreVariety.mutateAsync(id);
       showSuccess('Varietà ripristinata con successo');
-    } catch {
-      showError('Errore durante il ripristino');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il ripristino'));
     }
   };
 
@@ -208,8 +209,8 @@ export function VarietiesPage() {
       await purgeVariety.mutateAsync({ id: purgingVariety.id, reason });
       showSuccess('Varietà eliminata definitivamente');
       setPurgingVariety(null);
-    } catch {
-      showError('Errore durante l\'eliminazione definitiva');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione definitiva'));
     }
   };
 

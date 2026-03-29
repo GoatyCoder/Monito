@@ -1,9 +1,11 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCode, ErrorCodes } from '../errors/error-codes';
 
 interface ErrorResponse {
   statusCode: number;
+  code: ErrorCode;
   message: string;
   error: string;
   timestamp: string;
@@ -23,27 +25,32 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Database error';
     let error = 'Database Error';
+    let code: ErrorCode = ErrorCodes.DB_ERROR;
 
     switch (exception.code) {
       case 'P2000':
         message = 'The provided value for the column is too long';
         status = HttpStatus.BAD_REQUEST;
         error = 'Bad Request';
+        code = ErrorCodes.VALIDATION_ERROR;
         break;
       case 'P2001':
         message = 'The record searched for in the where condition does not exist';
         status = HttpStatus.NOT_FOUND;
         error = 'Not Found';
+        code = ErrorCodes.DB_RECORD_NOT_FOUND;
         break;
       case 'P2002':
         message = 'A unique constraint would be violated';
         status = HttpStatus.CONFLICT;
         error = 'Conflict';
+        code = ErrorCodes.DB_UNIQUE_CONSTRAINT;
         break;
       case 'P2003':
         message = 'A foreign key constraint failed';
         status = HttpStatus.BAD_REQUEST;
         error = 'Bad Request';
+        code = ErrorCodes.DB_FOREIGN_KEY_CONSTRAINT;
         break;
       case 'P2004':
         message = 'A required constraint is not being provided';
@@ -154,6 +161,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         message = 'An operation failed because it depends on one or more records that were required but not found';
         status = HttpStatus.NOT_FOUND;
         error = 'Not Found';
+        code = ErrorCodes.DB_RECORD_NOT_FOUND;
         break;
       case 'P2026':
         message = 'The current database provider does not support a feature that the query used';
@@ -167,10 +175,12 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         break;
       default:
         this.logger.error(`Unhandled Prisma error code: ${exception.code}`, exception.stack);
+        code = ErrorCodes.DB_ERROR;
     }
 
     const errorResponse: ErrorResponse = {
       statusCode: status,
+      code,
       message,
       error,
       timestamp: new Date().toISOString(),

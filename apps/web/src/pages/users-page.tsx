@@ -25,6 +25,7 @@ import {
   type UserFilters,
 } from '@/hooks/use-users';
 import { showError, showSuccess } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 import type { Role, User } from '@monito/types';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -98,8 +99,8 @@ export function UsersPage() {
       setIsDialogOpen(false);
       setEditingUser(null);
       reset();
-    } catch {
-      showError('Errore durante il salvataggio utente');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il salvataggio utente'));
     }
   };
 
@@ -107,8 +108,8 @@ export function UsersPage() {
     try {
       await updateStatus.mutateAsync({ id: user.id, isActive: !user.isActive });
       showSuccess(user.isActive ? 'Utente disattivato' : 'Utente riattivato');
-    } catch {
-      showError('Errore durante aggiornamento stato utente');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante aggiornamento stato utente'));
     }
   };
 
@@ -117,8 +118,8 @@ export function UsersPage() {
       const result = await resetPassword.mutateAsync(user.id);
       setTemporaryPassword(result.temporaryPassword);
       showSuccess('Password temporanea generata');
-    } catch {
-      showError('Errore durante reset password');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante reset password'));
     }
   };
 

@@ -13,6 +13,7 @@ import {
   ProductFilters,
 } from '@/hooks/use-products';
 import { showSuccess, showError } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -104,8 +105,8 @@ export function ProductsPage() {
     try {
       await restoreProduct.mutateAsync(id);
       showSuccess('Prodotto ripristinato con successo');
-    } catch {
-      showError('Errore durante il ripristino');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il ripristino'));
     }
   };
 
@@ -116,8 +117,8 @@ export function ProductsPage() {
       await purgeProduct.mutateAsync({ id: purgingProduct.id, reason });
       showSuccess('Prodotto eliminato definitivamente');
       setPurgingProduct(null);
-    } catch {
-      showError('Errore durante l\'eliminazione definitiva');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione definitiva'));
     }
   };
 
@@ -148,8 +149,8 @@ export function ProductsPage() {
         showSuccess('Prodotto creato con successo');
       }
       handleCloseDialog();
-    } catch {
-      showError('Errore durante il salvataggio');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il salvataggio'));
     }
   };
 
@@ -159,8 +160,8 @@ export function ProductsPage() {
         await deleteProduct.mutateAsync(deletingProduct.id);
         showSuccess('Prodotto eliminato con successo');
         setDeletingProduct(null);
-      } catch {
-        showError('Errore durante l\'eliminazione');
+      } catch (err) {
+        showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione'));
       }
     }
   };

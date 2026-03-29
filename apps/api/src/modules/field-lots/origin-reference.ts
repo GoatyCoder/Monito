@@ -3,6 +3,7 @@ import countries from 'i18n-iso-countries';
 import enLocale from 'i18n-iso-countries/langs/en.json';
 import itLocale from 'i18n-iso-countries/langs/it.json';
 import comuni from 'comuni-json/comuni.json';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 countries.registerLocale(enLocale);
 countries.registerLocale(itLocale);
@@ -86,7 +87,10 @@ export function normalizeOriginInput(input: {
 
 export function validateOriginInput(input: NormalizedOriginInput): void {
   if (!countries.isValid(input.originCountryCode)) {
-    throw new BadRequestException('originCountryCode is not a valid ISO country code');
+    throw new BadRequestException({
+      code: ErrorCodes.FIELD_LOT_ORIGIN_INVALID_COUNTRY,
+      message: 'originCountryCode is not a valid ISO country code',
+    });
   }
 
   if (input.originCountryCode !== 'IT') {
@@ -94,7 +98,10 @@ export function validateOriginInput(input: NormalizedOriginInput): void {
   }
 
   if (input.originRegion && !italianRegionsByCode.has(input.originRegion)) {
-    throw new BadRequestException('originRegion is not a valid Italian region ISTAT code');
+    throw new BadRequestException({
+      code: ErrorCodes.FIELD_LOT_ORIGIN_INVALID_REGION,
+      message: 'originRegion is not a valid Italian region ISTAT code',
+    });
   }
 
   const province = input.originProvince
@@ -102,25 +109,40 @@ export function validateOriginInput(input: NormalizedOriginInput): void {
     : undefined;
 
   if (input.originProvince && !province) {
-    throw new BadRequestException('originProvince is not a valid Italian province ISTAT code');
+    throw new BadRequestException({
+      code: ErrorCodes.FIELD_LOT_ORIGIN_INVALID_PROVINCE,
+      message: 'originProvince is not a valid Italian province ISTAT code',
+    });
   }
 
   if (province && input.originRegion && !province.regionCodes.has(input.originRegion)) {
-    throw new BadRequestException('originProvince is not coherent with originRegion');
+    throw new BadRequestException({
+      code: ErrorCodes.FIELD_LOT_ORIGIN_INCOHERENT_REGION,
+      message: 'originProvince is not coherent with originRegion',
+    });
   }
 
   const comune = input.originComune ? italianComuniByCode.get(input.originComune) : undefined;
 
   if (input.originComune && !comune) {
-    throw new BadRequestException('originComune is not a valid Italian comune ISTAT code');
+    throw new BadRequestException({
+      code: ErrorCodes.FIELD_LOT_ORIGIN_INVALID_COMUNE,
+      message: 'originComune is not a valid Italian comune ISTAT code',
+    });
   }
 
   if (comune && input.originRegion && comune.regionCode !== input.originRegion) {
-    throw new BadRequestException('originComune is not coherent with originRegion');
+    throw new BadRequestException({
+      code: ErrorCodes.FIELD_LOT_ORIGIN_INCOHERENT_REGION,
+      message: 'originComune is not coherent with originRegion',
+    });
   }
 
   if (comune && input.originProvince && comune.provinceCode !== input.originProvince) {
-    throw new BadRequestException('originComune is not coherent with originProvince');
+    throw new BadRequestException({
+      code: ErrorCodes.FIELD_LOT_ORIGIN_INCOHERENT_PROVINCE,
+      message: 'originComune is not coherent with originProvince',
+    });
   }
 }
 

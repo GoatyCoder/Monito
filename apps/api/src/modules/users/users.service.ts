@@ -246,10 +246,6 @@ export class UsersService {
     if (dto.surname) data.surname = dto.surname;
     if ('role' in dto && dto.role) data.role = dto.role;
     if ('avatarColor' in dto && dto.avatarColor) data.avatarColor = dto.avatarColor;
-    if ('password' in dto && dto.password) {
-      const saltRounds = this.configService.get<number>('bcrypt.saltRounds') ?? 12;
-      data.password = await bcrypt.hash(dto.password, saltRounds);
-    }
 
     const updated = await this.prisma.user.update({
       where: { id },

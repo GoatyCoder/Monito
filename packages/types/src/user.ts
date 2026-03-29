@@ -34,7 +34,6 @@ export interface UpdateUserDto {
   surname?: string;
   role?: Role;
   avatarColor?: AvatarColor;
-  password?: string;
 }
 
 export interface UpdateMeDto {

@@ -22,6 +22,7 @@ import { RecentUserHintDto } from './dto/recent-user-hints.dto';
 import { VerifyPasswordDto } from './dto/verify-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 const REFRESH_TOKEN_BLACKLIST_PREFIX = 'refresh:blacklist:';
 const DEFAULT_ACCESS_EXPIRES_IN = '15m';
@@ -85,7 +86,10 @@ export class AuthService {
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_USER_NOT_FOUND,
+        message: 'User not found',
+      });
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
@@ -99,7 +103,10 @@ export class AuthService {
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
-      throw new UnauthorizedException('Invalid password');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_INVALID_PASSWORD,
+        message: 'Invalid password',
+      });
     }
 
     if (!user.isActive) {
@@ -112,7 +119,10 @@ export class AuthService {
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
       });
-      throw new ForbiddenException('User account is disabled');
+      throw new ForbiddenException({
+        code: ErrorCodes.AUTH_USER_DISABLED,
+        message: 'User account is disabled',
+      });
     }
 
     const loggedInAt = new Date();
@@ -154,7 +164,10 @@ export class AuthService {
 
     const isBlacklisted = await this.isTokenBlacklisted(refreshToken);
     if (isBlacklisted) {
-      throw new UnauthorizedException('Token has been revoked');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_REFRESH_REVOKED,
+        message: 'Token has been revoked',
+      });
     }
 
     const user = await this.prisma.user.findUnique({
@@ -175,11 +188,17 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_USER_NOT_FOUND,
+        message: 'User not found',
+      });
     }
 
     if (!user.isActive) {
-      throw new ForbiddenException('User account is disabled');
+      throw new ForbiddenException({
+        code: ErrorCodes.AUTH_USER_DISABLED,
+        message: 'User account is disabled',
+      });
     }
 
     await this.blacklistToken(refreshToken, payload.exp);
@@ -221,12 +240,18 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_USER_NOT_FOUND,
+        message: 'User not found',
+      });
     }
 
     const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Current password is invalid');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_INVALID_PASSWORD,
+        message: 'Current password is invalid',
+      });
     }
 
     const saltRounds = this.configService.get<number>('bcrypt.saltRounds') ?? 12;
@@ -261,16 +286,25 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_USER_NOT_FOUND,
+        message: 'User not found',
+      });
     }
 
     if (!user.isActive) {
-      throw new ForbiddenException('User account is disabled');
+      throw new ForbiddenException({
+        code: ErrorCodes.AUTH_USER_DISABLED,
+        message: 'User account is disabled',
+      });
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid password');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_INVALID_PASSWORD,
+        message: 'Invalid password',
+      });
     }
   }
 
@@ -344,7 +378,10 @@ export class AuthService {
         secret: this.getJwtSecret('jwt.refreshSecret'),
       });
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_INVALID_REFRESH_TOKEN,
+        message: 'Invalid refresh token',
+      });
     }
   }
 

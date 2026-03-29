@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import { showError, showSuccess } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 
 function roleLabel(role: string): string {
   if (role === 'ADMIN') return 'Amministratore';
@@ -113,8 +114,8 @@ export function ProfilePage() {
 
       await refreshCurrentUser();
       showSuccess('Profilo aggiornato con successo');
-    } catch {
-      showError('Errore durante l\'aggiornamento del profilo');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'aggiornamento del profilo'));
     }
   };
 
@@ -127,8 +128,8 @@ export function ProfilePage() {
       resetPasswordForm();
       await refreshCurrentUser();
       showSuccess('Password aggiornata con successo');
-    } catch {
-      showError('Errore durante cambio password');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante cambio password'));
     }
   };
 

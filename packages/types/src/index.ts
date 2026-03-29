@@ -1,4 +1,5 @@
 export * from './user';
+export * from './api-error';
 export * from './product';
 export * from './product-subtype';
 export * from './variety';

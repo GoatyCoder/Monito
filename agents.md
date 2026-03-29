@@ -61,6 +61,18 @@ pnpm run lint             # Lint + fix
 - Backend: usa `HttpException` (NotFoundException, ConflictException)
 - Frontend: try/catch con `showError()` da `@/lib/toast`
 
+#### Standard errori API (obbligatorio)
+- Le risposte errore devono includere sempre `code` stabile (machine-readable)
+- Contratto errore: `{ statusCode, code, message, error, timestamp, path, requestId, details? }`
+- Backend:
+  - usa i codici centralizzati in `apps/api/src/common/errors/error-codes.ts`
+  - quando lanci eccezioni dominio, passa `{ code, message }` nel payload della `HttpException`
+  - non usare il testo `message` come contratto per il frontend
+- Frontend:
+  - non fare mapping hardcoded da messaggi inglesi
+  - usa `getApiErrorMessage()` / `translateErrorCode()` in `apps/web/src/lib/error-utils.ts` e `apps/web/src/lib/error-messages.ts`
+  - `message` e solo fallback, `code` e la fonte primaria per UX/localizzazione
+
 ---
 
 ## Cosa NON fare

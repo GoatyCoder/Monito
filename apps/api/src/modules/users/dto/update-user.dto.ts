@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength, Matches, IsEnum } from 'class-validator';
+import { IsOptional, IsString, MaxLength, Matches, IsEnum } from 'class-validator';
 import { Role } from '../../../../generated/prisma/client';
 
 export class UpdateUserDto {
@@ -9,12 +9,6 @@ export class UpdateUserDto {
   @MaxLength(32)
   @Matches(/^[A-Za-z0-9]+$/, { message: 'Username must contain only letters and numbers' })
   username?: string;
-
-  @ApiPropertyOptional({ minLength: 6 })
-  @IsOptional()
-  @IsString()
-  @MinLength(6)
-  password?: string;
 
   @ApiPropertyOptional({ maxLength: 50 })
   @IsOptional()

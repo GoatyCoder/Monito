@@ -17,6 +17,7 @@ import { useAllProductSubtypes } from '@/hooks/use-product-subtypes';
 import { useAllVarieties } from '@/hooks/use-varieties';
 import { useAuth } from '@/contexts/auth-context';
 import { showError, showSuccess } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -181,8 +182,8 @@ export function ProcessedProductsPage() {
         showSuccess('Lavorato creato con successo');
       }
       handleCloseDialog();
-    } catch {
-      showError('Errore durante il salvataggio');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il salvataggio'));
     }
   };
 
@@ -192,8 +193,8 @@ export function ProcessedProductsPage() {
       await deleteProcessedProduct.mutateAsync(deletingProcessedProduct.id);
       showSuccess('Lavorato eliminato con successo');
       setDeletingProcessedProduct(null);
-    } catch {
-      showError('Errore durante l\'eliminazione');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione'));
     }
   };
 
@@ -201,8 +202,8 @@ export function ProcessedProductsPage() {
     try {
       await restoreProcessedProduct.mutateAsync(id);
       showSuccess('Lavorato ripristinato con successo');
-    } catch {
-      showError('Errore durante il ripristino');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il ripristino'));
     }
   };
 
@@ -216,8 +217,8 @@ export function ProcessedProductsPage() {
       });
       showSuccess('Lavorato eliminato definitivamente');
       setPurgingProcessedProduct(null);
-    } catch {
-      showError('Errore durante l\'eliminazione definitiva');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione definitiva'));
     }
   };
 

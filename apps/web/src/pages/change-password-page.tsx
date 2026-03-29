@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
 import { api } from '@/lib/api';
 import { showError, showSuccess } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 import { useAuth } from '@/contexts/auth-context';
 
 const schema = z
@@ -44,8 +45,8 @@ export function ChangePasswordPage() {
       await refreshCurrentUser();
       showSuccess('Password aggiornata con successo');
       navigate({ to: '/' });
-    } catch {
-      showError('Errore durante cambio password');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante cambio password'));
     } finally {
       setIsSaving(false);
     }

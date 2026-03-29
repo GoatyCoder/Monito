@@ -238,6 +238,28 @@ Regola di scope per unicita codice:
 - dimensioni: `mm` (interi)
 - pesi: `kg` (massimo 3 decimali)
 
+## Error contract
+
+Le risposte errore espongono sempre `code` stabile per la traduzione lato frontend:
+
+```json
+{
+  "statusCode": 401,
+  "code": "AUTH_INVALID_PASSWORD",
+  "message": "Invalid password",
+  "error": "Unauthorized",
+  "timestamp": "2026-03-29T10:00:00.000Z",
+  "path": "/api/v1/auth/login",
+  "requestId": "..."
+}
+```
+
+Codici principali iniziali:
+
+- `AUTH_USER_NOT_FOUND`, `AUTH_INVALID_PASSWORD`, `AUTH_USER_DISABLED`
+- `VALIDATION_ERROR`, `RESOURCE_NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`, `INTERNAL_ERROR`
+- `DB_UNIQUE_CONSTRAINT`, `DB_FOREIGN_KEY_CONSTRAINT`, `DB_RECORD_NOT_FOUND`
+
 ## Restore/Purge status codes
 
 - `restore`:

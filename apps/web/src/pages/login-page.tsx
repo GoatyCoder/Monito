@@ -18,6 +18,7 @@ import {
   type RecentUserLocalEntry,
 } from '@/lib/recent-users';
 import { showError } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 import { type RecentUserHint } from '@monito/types';
 
 const loginSchema = z.object({
@@ -114,22 +115,7 @@ export function LoginPage() {
       const loggedUser = await login(data);
       navigate({ to: loggedUser.mustChangePassword ? '/change-password' : '/' });
     } catch (err: unknown) {
-      const apiMessage =
-        typeof err === 'object' &&
-        err !== null &&
-        'response' in err &&
-        typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-
-      const normalizedError =
-        apiMessage === 'User account is disabled'
-          ? 'Account disattivato'
-          : apiMessage === 'User not found'
-            ? 'Utente non esistente'
-            : apiMessage === 'Invalid password'
-              ? 'Password non corretta'
-              : 'Accesso non riuscito';
+      const normalizedError = getApiErrorMessage(err, 'Accesso non riuscito');
 
       showError(normalizedError);
       setError(normalizedError);

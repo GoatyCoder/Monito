@@ -14,6 +14,7 @@ import {
 } from '@/hooks/use-packagings';
 import { useAuth } from '@/contexts/auth-context';
 import { showError, showSuccess } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/error-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -162,8 +163,8 @@ export function PackagingsPage() {
         showSuccess('Imballaggio creato con successo');
       }
       handleCloseDialog();
-    } catch {
-      showError('Errore durante il salvataggio');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il salvataggio'));
     }
   };
 
@@ -173,8 +174,8 @@ export function PackagingsPage() {
       await deletePackaging.mutateAsync(deletingPackaging.id);
       showSuccess('Imballaggio eliminato con successo');
       setDeletingPackaging(null);
-    } catch {
-      showError('Errore durante l\'eliminazione');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione'));
     }
   };
 
@@ -182,8 +183,8 @@ export function PackagingsPage() {
     try {
       await restorePackaging.mutateAsync(id);
       showSuccess('Imballaggio ripristinato con successo');
-    } catch {
-      showError('Errore durante il ripristino');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante il ripristino'));
     }
   };
 
@@ -194,8 +195,8 @@ export function PackagingsPage() {
       await purgePackaging.mutateAsync({ id: purgingPackaging.id, reason });
       showSuccess('Imballaggio eliminato definitivamente');
       setPurgingPackaging(null);
-    } catch {
-      showError('Errore durante l\'eliminazione definitiva');
+    } catch (err) {
+      showError(getApiErrorMessage(err, 'Errore durante l\'eliminazione definitiva'));
     }
   };
 

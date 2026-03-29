@@ -15,6 +15,7 @@ import {
   normalizeOriginInput,
   validateOriginInput,
 } from './origin-reference';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 export const ENTITY_NAME = 'FieldLot';
 
@@ -36,7 +37,10 @@ export class FieldLotsService {
     });
 
     if (!variety) {
-      throw new NotFoundException(`Variety with ID ${dto.varietyId} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.VARIETY_NOT_FOUND,
+        message: `Variety with ID ${dto.varietyId} not found`,
+      });
     }
 
     const existing = await this.prisma.fieldLot.findUnique({
@@ -44,7 +48,10 @@ export class FieldLotsService {
     });
 
     if (existing) {
-      throw new ConflictException('FieldLot with this lotCode already exists');
+      throw new ConflictException({
+        code: ErrorCodes.FIELD_LOT_DUPLICATE_CODE,
+        message: 'FieldLot with this lotCode already exists',
+      });
     }
 
     const fieldLot = await this.prisma.fieldLot.create({
@@ -169,7 +176,10 @@ export class FieldLotsService {
     });
 
     if (!fieldLot) {
-      throw new NotFoundException(`FieldLot with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `FieldLot with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(fieldLot);
@@ -181,7 +191,10 @@ export class FieldLotsService {
     });
 
     if (!fieldLot) {
-      throw new NotFoundException(`Soft-deleted field lot with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `Soft-deleted field lot with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(fieldLot);
@@ -194,7 +207,10 @@ export class FieldLotsService {
     });
 
     if (!fieldLot) {
-      throw new NotFoundException(`FieldLot with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `FieldLot with ID ${id} not found`,
+      });
     }
 
     return {
@@ -219,7 +235,10 @@ export class FieldLotsService {
     });
 
     if (!fieldLot) {
-      throw new NotFoundException(`FieldLot with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `FieldLot with ID ${id} not found`,
+      });
     }
 
     if (dto.lotCode && dto.lotCode !== fieldLot.lotCode) {
@@ -227,7 +246,10 @@ export class FieldLotsService {
         where: { lotCode: dto.lotCode },
       });
       if (existing) {
-        throw new ConflictException('FieldLot with this lotCode already exists');
+        throw new ConflictException({
+          code: ErrorCodes.FIELD_LOT_DUPLICATE_CODE,
+          message: 'FieldLot with this lotCode already exists',
+        });
       }
     }
 
@@ -297,10 +319,16 @@ export class FieldLotsService {
     if (!fieldLot) {
       const deletedFieldLot = await this.prisma.fieldLot.findUnique({ where: { id } });
       if (deletedFieldLot?.deletedAt) {
-        throw new ConflictException(`FieldLot with ID ${id} is already deleted`);
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `FieldLot with ID ${id} is already deleted`,
+        });
       }
 
-      throw new NotFoundException(`FieldLot with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `FieldLot with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(fieldLot);
@@ -326,11 +354,17 @@ export class FieldLotsService {
     });
 
     if (!fieldLot) {
-      throw new NotFoundException(`FieldLot with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `FieldLot with ID ${id} not found`,
+      });
     }
 
     if (!fieldLot.deletedAt) {
-      throw new ConflictException(`FieldLot with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `FieldLot with ID ${id} is not deleted`,
+      });
     }
 
     const updated = await this.prisma.fieldLot.update({
@@ -356,16 +390,25 @@ export class FieldLotsService {
     const fieldLot = await this.prisma.fieldLot.findUnique({ where: { id } });
 
     if (!fieldLot) {
-      throw new NotFoundException(`FieldLot with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `FieldLot with ID ${id} not found`,
+      });
     }
 
     if (!fieldLot.deletedAt) {
-      throw new ConflictException(`FieldLot with ID ${id} must be soft-deleted before purge`);
+      throw new ConflictException({
+        code: ErrorCodes.FIELD_LOT_PURGE_REQUIRES_SOFT_DELETE,
+        message: `FieldLot with ID ${id} must be soft-deleted before purge`,
+      });
     }
 
     const linkedPallets = await this.prisma.pallet.count({ where: { fieldLotId: id } });
     if (linkedPallets > 0) {
-      throw new ConflictException('Cannot purge field lot because it is still referenced by pallets');
+      throw new ConflictException({
+        code: ErrorCodes.FIELD_LOT_PURGE_REFERENCED,
+        message: 'Cannot purge field lot because it is still referenced by pallets',
+      });
     }
 
     await this.prisma.fieldLot.delete({ where: { id } });

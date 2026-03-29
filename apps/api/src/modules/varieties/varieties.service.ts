@@ -7,6 +7,7 @@ import { PaginatedResponse } from '../../common/interceptors/transform.intercept
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 export const ENTITY_NAME = 'Variety';
 const CODE_DB_MAX_LENGTH = 32;
@@ -140,7 +141,10 @@ export class VarietiesService {
     });
 
     if (!variety) {
-      throw new NotFoundException(`Variety with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.VARIETY_NOT_FOUND,
+        message: `Variety with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(variety);
@@ -152,7 +156,10 @@ export class VarietiesService {
     });
 
     if (!variety) {
-      throw new NotFoundException(`Soft-deleted variety with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.VARIETY_NOT_FOUND,
+        message: `Soft-deleted variety with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(variety);
@@ -164,7 +171,10 @@ export class VarietiesService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${productId} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${productId} not found`,
+      });
     }
 
     const varieties = await this.prisma.variety.findMany({
@@ -181,7 +191,10 @@ export class VarietiesService {
     });
 
     if (!variety) {
-      throw new NotFoundException(`Variety with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.VARIETY_NOT_FOUND,
+        message: `Variety with ID ${id} not found`,
+      });
     }
 
     const nextProductId = dto.productId ?? variety.productId;
@@ -236,10 +249,16 @@ export class VarietiesService {
     if (!variety) {
       const deletedVariety = await this.prisma.variety.findUnique({ where: { id } });
       if (deletedVariety?.deletedAt) {
-        throw new ConflictException(`Variety with ID ${id} is already deleted`);
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `Variety with ID ${id} is already deleted`,
+        });
       }
 
-      throw new NotFoundException(`Variety with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.VARIETY_NOT_FOUND,
+        message: `Variety with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(variety);
@@ -269,11 +288,17 @@ export class VarietiesService {
     });
 
     if (!variety) {
-      throw new NotFoundException(`Variety with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.VARIETY_NOT_FOUND,
+        message: `Variety with ID ${id} not found`,
+      });
     }
 
     if (!variety.deletedAt) {
-      throw new ConflictException(`Variety with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Variety with ID ${id} is not deleted`,
+      });
     }
 
     const originalCode = this.extractOriginalCode(variety.code);
@@ -305,16 +330,25 @@ export class VarietiesService {
     const variety = await this.prisma.variety.findUnique({ where: { id } });
 
     if (!variety) {
-      throw new NotFoundException(`Variety with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.VARIETY_NOT_FOUND,
+        message: `Variety with ID ${id} not found`,
+      });
     }
 
     if (!variety.deletedAt) {
-      throw new ConflictException(`Variety with ID ${id} must be soft-deleted before purge`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Variety with ID ${id} must be soft-deleted before purge`,
+      });
     }
 
     const linkedFieldLots = await this.prisma.fieldLot.count({ where: { varietyId: id } });
     if (linkedFieldLots > 0) {
-      throw new ConflictException('Cannot purge variety because it is still referenced by field lots');
+      throw new ConflictException({
+        code: ErrorCodes.VARIETY_PURGE_REFERENCED,
+        message: 'Cannot purge variety because it is still referenced by field lots',
+      });
     }
 
     await this.prisma.variety.delete({ where: { id } });
@@ -364,7 +398,10 @@ export class VarietiesService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${productId} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${productId} not found`,
+      });
     }
   }
 
@@ -379,7 +416,10 @@ export class VarietiesService {
     });
 
     if (existing) {
-      throw new ConflictException('Variety with this code already exists for the selected product');
+      throw new ConflictException({
+        code: ErrorCodes.VARIETY_ALREADY_EXISTS,
+        message: 'Variety with this code already exists for the selected product',
+      });
     }
   }
 
@@ -403,11 +443,17 @@ export class VarietiesService {
     });
 
     if (!subtype) {
-      throw new NotFoundException(`Product subtype with ID ${productSubtypeId} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_NOT_FOUND,
+        message: `Product subtype with ID ${productSubtypeId} not found`,
+      });
     }
 
     if (subtype.productId !== productId) {
-      throw new ConflictException('Product subtype does not belong to the selected product');
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: 'Product subtype does not belong to the selected product',
+      });
     }
 
     return subtype.id;

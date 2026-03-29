@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCodes } from '../../common/errors/error-codes';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { getPaginationParams } from '../../common/dto/pagination.dto';
 import { AuditQueueService } from '../../common/events/audit-queue.service';
@@ -133,7 +134,10 @@ export class ProductSubtypesService {
     });
 
     if (!subtype) {
-      throw new NotFoundException(`Product subtype with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_NOT_FOUND,
+        message: `Product subtype with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(subtype);
@@ -145,7 +149,10 @@ export class ProductSubtypesService {
     });
 
     if (!subtype) {
-      throw new NotFoundException(`Soft-deleted product subtype with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_NOT_FOUND,
+        message: `Soft-deleted product subtype with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(subtype);
@@ -168,7 +175,10 @@ export class ProductSubtypesService {
     });
 
     if (!subtype) {
-      throw new NotFoundException(`Product subtype with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_NOT_FOUND,
+        message: `Product subtype with ID ${id} not found`,
+      });
     }
 
     if (dto.code && dto.code !== subtype.code) {
@@ -203,10 +213,16 @@ export class ProductSubtypesService {
     if (!subtype) {
       const deletedSubtype = await this.prisma.productSubtype.findUnique({ where: { id } });
       if (deletedSubtype?.deletedAt) {
-        throw new ConflictException(`Product subtype with ID ${id} is already deleted`);
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `Product subtype with ID ${id} is already deleted`,
+        });
       }
 
-      throw new NotFoundException(`Product subtype with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_NOT_FOUND,
+        message: `Product subtype with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(subtype);
@@ -234,11 +250,17 @@ export class ProductSubtypesService {
     const subtype = await this.prisma.productSubtype.findUnique({ where: { id } });
 
     if (!subtype) {
-      throw new NotFoundException(`Product subtype with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_NOT_FOUND,
+        message: `Product subtype with ID ${id} not found`,
+      });
     }
 
     if (!subtype.deletedAt) {
-      throw new ConflictException(`Product subtype with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Product subtype with ID ${id} is not deleted`,
+      });
     }
 
     const originalCode = this.extractOriginalCode(subtype.code);
@@ -270,11 +292,17 @@ export class ProductSubtypesService {
     const subtype = await this.prisma.productSubtype.findUnique({ where: { id } });
 
     if (!subtype) {
-      throw new NotFoundException(`Product subtype with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_NOT_FOUND,
+        message: `Product subtype with ID ${id} not found`,
+      });
     }
 
     if (!subtype.deletedAt) {
-      throw new ConflictException(`Product subtype with ID ${id} must be soft-deleted before purge`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Product subtype with ID ${id} must be soft-deleted before purge`,
+      });
     }
 
     const linkedVarieties = await this.prisma.variety.count({
@@ -285,9 +313,10 @@ export class ProductSubtypesService {
     });
 
     if (linkedVarieties > 0) {
-      throw new ConflictException(
-        'Cannot purge product subtype because it is still referenced by active varieties',
-      );
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: 'Cannot purge product subtype because it is still referenced by active varieties',
+      });
     }
 
     await this.prisma.productSubtype.delete({ where: { id } });
@@ -313,7 +342,10 @@ export class ProductSubtypesService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${productId} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${productId} not found`,
+      });
     }
   }
 
@@ -328,7 +360,10 @@ export class ProductSubtypesService {
     });
 
     if (existing) {
-      throw new ConflictException('Product subtype with this code already exists for the selected product');
+      throw new ConflictException({
+        code: ErrorCodes.PRODUCT_SUBTYPE_ALREADY_EXISTS,
+        message: 'Product subtype with this code already exists for the selected product',
+      });
     }
   }
 

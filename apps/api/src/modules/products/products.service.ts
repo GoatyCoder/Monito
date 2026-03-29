@@ -7,6 +7,7 @@ import { PaginatedResponse } from '../../common/interceptors/transform.intercept
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 export const ENTITY_NAME = 'Product';
 const PRODUCT_CODE_DB_MAX_LENGTH = 32;
@@ -30,7 +31,10 @@ export class ProductsService {
     });
 
     if (existing) {
-      throw new ConflictException('Product with this code already exists');
+      throw new ConflictException({
+        code: ErrorCodes.PRODUCT_ALREADY_EXISTS,
+        message: 'Product with this code already exists',
+      });
     }
 
     const product = await this.prisma.product.create({
@@ -154,7 +158,10 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${id} not found`,
+      });
     }
 
     return this.toResponseWithVarieties(product);
@@ -166,7 +173,10 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Soft-deleted product with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Soft-deleted product with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(product);
@@ -178,7 +188,10 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${id} not found`,
+      });
     }
 
     if (dto.code && dto.code !== product.code) {
@@ -190,7 +203,10 @@ export class ProductsService {
         },
       });
       if (existing) {
-        throw new ConflictException('Product with this code already exists');
+        throw new ConflictException({
+          code: ErrorCodes.PRODUCT_ALREADY_EXISTS,
+          message: 'Product with this code already exists',
+        });
       }
     }
 
@@ -222,10 +238,16 @@ export class ProductsService {
     if (!product) {
       const deletedProduct = await this.prisma.product.findUnique({ where: { id } });
       if (deletedProduct?.deletedAt) {
-        throw new ConflictException(`Product with ID ${id} is already deleted`);
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `Product with ID ${id} is already deleted`,
+        });
       }
 
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(product);
@@ -255,11 +277,17 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${id} not found`,
+      });
     }
 
     if (!product.deletedAt) {
-      throw new ConflictException(`Product with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Product with ID ${id} is not deleted`,
+      });
     }
 
     const originalCode = this.extractOriginalCode(product.code);
@@ -272,9 +300,10 @@ export class ProductsService {
     });
 
     if (activeWithOriginalCode) {
-      throw new ConflictException(
-        `Cannot restore product with ID ${id}: code ${originalCode} is already used by an active product`,
-      );
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Cannot restore product with ID ${id}: code ${originalCode} is already used by an active product`,
+      });
     }
 
     const updated = await this.prisma.product.update({
@@ -303,16 +332,25 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({ where: { id } });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PRODUCT_NOT_FOUND,
+        message: `Product with ID ${id} not found`,
+      });
     }
 
     if (!product.deletedAt) {
-      throw new ConflictException(`Product with ID ${id} must be soft-deleted before purge`);
+      throw new ConflictException({
+        code: ErrorCodes.PRODUCT_PURGE_REQUIRES_SOFT_DELETE,
+        message: `Product with ID ${id} must be soft-deleted before purge`,
+      });
     }
 
     const linkedVarieties = await this.prisma.variety.count({ where: { productId: id } });
     if (linkedVarieties > 0) {
-      throw new ConflictException('Cannot purge product because it is still referenced by varieties');
+      throw new ConflictException({
+        code: ErrorCodes.PRODUCT_PURGE_REFERENCED,
+        message: 'Cannot purge product because it is still referenced by varieties',
+      });
     }
 
     await this.prisma.product.delete({ where: { id } });

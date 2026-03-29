@@ -31,6 +31,7 @@ import { RolesGuard, Roles } from '../auth/guards';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -107,7 +108,10 @@ export class UsersController {
     @CurrentUser() user: JwtPayload,
   ): Promise<UserResponseDto> {
     if (user.role !== 'ADMIN' && user.sub !== id) {
-      throw new ForbiddenException('You can only access your own profile');
+      throw new ForbiddenException({
+        code: ErrorCodes.FORBIDDEN,
+        message: 'You can only access your own profile',
+      });
     }
 
     return this.usersService.findById(id);

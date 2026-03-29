@@ -32,58 +32,47 @@ export const ErrorCodes = {
   FIELD_LOT_ORIGIN_INVALID_COMUNE: 'FIELD_LOT_ORIGIN_INVALID_COMUNE',
   FIELD_LOT_ORIGIN_INCOHERENT_REGION: 'FIELD_LOT_ORIGIN_INCOHERENT_REGION',
   FIELD_LOT_ORIGIN_INCOHERENT_PROVINCE: 'FIELD_LOT_ORIGIN_INCOHERENT_PROVINCE',
+  FIELD_LOT_PURGE_REQUIRES_SOFT_DELETE: 'FIELD_LOT_PURGE_REQUIRES_SOFT_DELETE',
+  FIELD_LOT_PURGE_REFERENCED: 'FIELD_LOT_PURGE_REFERENCED',
+  PRODUCT_ALREADY_EXISTS: 'PRODUCT_ALREADY_EXISTS',
+  PRODUCT_NOT_FOUND: 'PRODUCT_NOT_FOUND',
+  PRODUCT_PURGE_REQUIRES_SOFT_DELETE: 'PRODUCT_PURGE_REQUIRES_SOFT_DELETE',
+  PRODUCT_PURGE_REFERENCED: 'PRODUCT_PURGE_REFERENCED',
+  PACKAGING_ALREADY_EXISTS: 'PACKAGING_ALREADY_EXISTS',
+  PACKAGING_NOT_FOUND: 'PACKAGING_NOT_FOUND',
+  PACKAGING_PURGE_REQUIRES_SOFT_DELETE: 'PACKAGING_PURGE_REQUIRES_SOFT_DELETE',
+  PACKAGING_PURGE_REFERENCED: 'PACKAGING_PURGE_REFERENCED',
+  PROCESSED_PRODUCT_ALREADY_EXISTS: 'PROCESSED_PRODUCT_ALREADY_EXISTS',
+  PROCESSED_PRODUCT_NOT_FOUND: 'PROCESSED_PRODUCT_NOT_FOUND',
+  PROCESSED_PRODUCT_PURGE_REQUIRES_SOFT_DELETE: 'PROCESSED_PRODUCT_PURGE_REQUIRES_SOFT_DELETE',
+  PROCESSED_PRODUCT_PURGE_REFERENCED: 'PROCESSED_PRODUCT_PURGE_REFERENCED',
+  PROCESSED_PRODUCT_ALLOWED_PRODUCTS_NOT_FOUND: 'PROCESSED_PRODUCT_ALLOWED_PRODUCTS_NOT_FOUND',
+  PROCESSED_PRODUCT_ALLOWED_SUBTYPES_NOT_FOUND: 'PROCESSED_PRODUCT_ALLOWED_SUBTYPES_NOT_FOUND',
+  PROCESSED_PRODUCT_ALLOWED_VARIETIES_NOT_FOUND: 'PROCESSED_PRODUCT_ALLOWED_VARIETIES_NOT_FOUND',
+  PALLET_BAD_REQUEST: 'PALLET_BAD_REQUEST',
+  PALLET_NOT_FOUND: 'PALLET_NOT_FOUND',
+  PALLET_PURGE_REQUIRES_SOFT_DELETE: 'PALLET_PURGE_REQUIRES_SOFT_DELETE',
+  VARIETY_ALREADY_EXISTS: 'VARIETY_ALREADY_EXISTS',
+  VARIETY_NOT_FOUND: 'VARIETY_NOT_FOUND',
+  VARIETY_PURGE_REFERENCED: 'VARIETY_PURGE_REFERENCED',
+  PRODUCT_SUBTYPE_ALREADY_EXISTS: 'PRODUCT_SUBTYPE_ALREADY_EXISTS',
+  PRODUCT_SUBTYPE_NOT_FOUND: 'PRODUCT_SUBTYPE_NOT_FOUND',
+  AUTH_TOKEN_STORE_UNAVAILABLE: 'AUTH_TOKEN_STORE_UNAVAILABLE',
+  AUTH_JWT_SECRET_NOT_CONFIGURED: 'AUTH_JWT_SECRET_NOT_CONFIGURED',
+  AUTH_MISSING_AUTH_HEADER: 'AUTH_MISSING_AUTH_HEADER',
+  AUTH_INVALID_TOKEN: 'AUTH_INVALID_TOKEN',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
-const MESSAGE_TO_CODE: Record<string, ErrorCode> = {
-  'User not found': ErrorCodes.AUTH_USER_NOT_FOUND,
-  'Invalid password': ErrorCodes.AUTH_INVALID_PASSWORD,
-  'User account is disabled': ErrorCodes.AUTH_USER_DISABLED,
-  'Invalid refresh token': ErrorCodes.AUTH_INVALID_REFRESH_TOKEN,
-  'Token has been revoked': ErrorCodes.AUTH_REFRESH_REVOKED,
-  'User with this username already exists': ErrorCodes.USER_ALREADY_EXISTS,
-  'You cannot deactivate your own account': ErrorCodes.USER_SELF_ADMIN_DEACTIVATE,
-  'Cannot deactivate the last active admin': ErrorCodes.USER_LAST_ACTIVE_ADMIN_DEACTIVATE,
-  'You cannot change your own admin role': ErrorCodes.USER_SELF_ADMIN_ROLE_CHANGE,
-  'Cannot remove the last active admin role': ErrorCodes.USER_LAST_ACTIVE_ADMIN_ROLE_CHANGE,
-  'You cannot delete your own account': ErrorCodes.USER_SELF_DELETE,
-  'Cannot delete the last active admin': ErrorCodes.USER_LAST_ACTIVE_ADMIN_DELETE,
-  'FieldLot with this lotCode already exists': ErrorCodes.FIELD_LOT_DUPLICATE_CODE,
-  'originCountryCode is not a valid ISO country code': ErrorCodes.FIELD_LOT_ORIGIN_INVALID_COUNTRY,
-  'originRegion is not a valid Italian region ISTAT code': ErrorCodes.FIELD_LOT_ORIGIN_INVALID_REGION,
-  'originProvince is not a valid Italian province ISTAT code': ErrorCodes.FIELD_LOT_ORIGIN_INVALID_PROVINCE,
-  'originComune is not a valid Italian comune ISTAT code': ErrorCodes.FIELD_LOT_ORIGIN_INVALID_COMUNE,
-  'originProvince is not coherent with originRegion': ErrorCodes.FIELD_LOT_ORIGIN_INCOHERENT_REGION,
-  'originComune is not coherent with originRegion': ErrorCodes.FIELD_LOT_ORIGIN_INCOHERENT_REGION,
-  'originComune is not coherent with originProvince': ErrorCodes.FIELD_LOT_ORIGIN_INCOHERENT_PROVINCE,
-};
-
 export function resolveErrorCode(options: {
   status: number;
-  message?: string;
+  message?: string | string[];
   error?: string;
 }): ErrorCode {
-  const normalizedMessage = options.message?.trim();
-  if (normalizedMessage && MESSAGE_TO_CODE[normalizedMessage]) {
-    return MESSAGE_TO_CODE[normalizedMessage];
-  }
-
-  if (normalizedMessage?.includes('with ID') && normalizedMessage.includes('not found')) {
-    if (normalizedMessage.startsWith('User ')) {
-      return ErrorCodes.USER_NOT_FOUND;
-    }
-    if (normalizedMessage.startsWith('FieldLot ')) {
-      return ErrorCodes.FIELD_LOT_NOT_FOUND;
-    }
-    return ErrorCodes.RESOURCE_NOT_FOUND;
-  }
-
   switch (options.status) {
     case 400:
-      return options.error === 'Bad Request' && normalizedMessage?.includes('must be')
-        ? ErrorCodes.VALIDATION_ERROR
-        : ErrorCodes.BAD_REQUEST;
+      return Array.isArray(options.message) ? ErrorCodes.VALIDATION_ERROR : ErrorCodes.BAD_REQUEST;
     case 401:
       return ErrorCodes.UNAUTHORIZED;
     case 403:

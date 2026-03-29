@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../../../common/decorators';
 import { JwtPayload } from '../strategies/jwt.strategy';
+import { ErrorCodes } from '../../../common/errors/error-codes';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -25,7 +26,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {
-      throw new UnauthorizedException('No authorization header');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_MISSING_AUTH_HEADER,
+        message: 'No authorization header',
+      });
     }
 
     return super.canActivate(context);
@@ -38,7 +42,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
     if (!user) {
       this.logger.warn('No user from JWT');
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException({
+        code: ErrorCodes.AUTH_INVALID_TOKEN,
+        message: 'Invalid token',
+      });
     }
     return user;
   }

@@ -211,7 +211,7 @@ export class AuthService {
 
     try {
       payload = this.jwtService.verify<JwtPayload>(refreshToken, {
-        secret: this.configService.get<string>('jwt.refreshSecret'),
+        secret: this.getJwtSecret('jwt.refreshSecret'),
       });
     } catch {
       // Token invalid, nothing to blacklist
@@ -402,7 +402,10 @@ export class AuthService {
         );
       } catch (error) {
         if (this.isProduction()) {
-          throw new ServiceUnavailableException('Token revocation store unavailable');
+          throw new ServiceUnavailableException({
+            code: ErrorCodes.AUTH_TOKEN_STORE_UNAVAILABLE,
+            message: 'Token revocation store unavailable',
+          });
         }
 
         this.logger.warn(`Failed to write refresh token blacklist: ${String(error)}`);
@@ -423,7 +426,10 @@ export class AuthService {
       return result !== null;
     } catch (error) {
       if (this.isProduction()) {
-        throw new ServiceUnavailableException('Token revocation store unavailable');
+        throw new ServiceUnavailableException({
+          code: ErrorCodes.AUTH_TOKEN_STORE_UNAVAILABLE,
+          message: 'Token revocation store unavailable',
+        });
       }
 
       this.logger.warn(`Failed to read refresh token blacklist: ${String(error)}`);
@@ -438,7 +444,10 @@ export class AuthService {
   private getJwtSecret(key: 'jwt.secret' | 'jwt.refreshSecret'): string {
     const secret = this.configService.get<string>(key);
     if (!secret) {
-      throw new InternalServerErrorException(`${key} is not configured`);
+      throw new InternalServerErrorException({
+        code: ErrorCodes.AUTH_JWT_SECRET_NOT_CONFIGURED,
+        message: `${key} is not configured`,
+      });
     }
     return secret;
   }
@@ -449,7 +458,10 @@ export class AuthService {
     }
 
     if (this.isProduction()) {
-      throw new ServiceUnavailableException('Token revocation store unavailable');
+      throw new ServiceUnavailableException({
+        code: ErrorCodes.AUTH_TOKEN_STORE_UNAVAILABLE,
+        message: 'Token revocation store unavailable',
+      });
     }
 
     this.logger.warn('Redis not available, refresh token revocation disabled in non-production mode');

@@ -18,6 +18,7 @@ import { PaginationDto, getPaginationParams } from '../../common/dto/pagination.
 import { PaginatedResponse } from '../../common/interceptors/transform.interceptor';
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 @Injectable()
 export class UsersService {
@@ -35,7 +36,10 @@ export class UsersService {
     });
 
     if (existing) {
-      throw new ConflictException('User with this username already exists');
+      throw new ConflictException({
+        code: ErrorCodes.USER_ALREADY_EXISTS,
+        message: 'User with this username already exists',
+      });
     }
 
     const temporaryPassword = dto.password ?? this.generateTemporaryPassword();
@@ -100,7 +104,10 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.USER_NOT_FOUND,
+        message: `User with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(user);
@@ -162,7 +169,10 @@ export class UsersService {
   async updateStatus(id: string, dto: UpdateUserStatusDto, actorUserId?: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.USER_NOT_FOUND,
+        message: `User with ID ${id} not found`,
+      });
     }
 
     await this.ensureAdminCanBeDeactivated(user, dto.isActive, actorUserId);
@@ -189,7 +199,10 @@ export class UsersService {
   async resetPassword(id: string, actorUserId?: string): Promise<ResetUserPasswordResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.USER_NOT_FOUND,
+        message: `User with ID ${id} not found`,
+      });
     }
 
     const temporaryPassword = this.generateTemporaryPassword();
@@ -224,7 +237,10 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.USER_NOT_FOUND,
+        message: `User with ID ${id} not found`,
+      });
     }
 
     if (dto.username && dto.username !== user.username) {
@@ -232,7 +248,10 @@ export class UsersService {
         where: { username: dto.username },
       });
       if (existing) {
-        throw new ConflictException('User with this username already exists');
+        throw new ConflictException({
+          code: ErrorCodes.USER_ALREADY_EXISTS,
+          message: 'User with this username already exists',
+        });
       }
     }
 
@@ -282,7 +301,10 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.USER_NOT_FOUND,
+        message: `User with ID ${id} not found`,
+      });
     }
 
     await this.ensureAdminCanBeDeleted(user, actorUserId);
@@ -316,12 +338,18 @@ export class UsersService {
     }
 
     if (actorUserId && user.id === actorUserId) {
-      throw new ConflictException('You cannot deactivate your own account');
+      throw new ConflictException({
+        code: ErrorCodes.USER_SELF_ADMIN_DEACTIVATE,
+        message: 'You cannot deactivate your own account',
+      });
     }
 
     const activeAdmins = await this.countActiveAdmins();
     if (activeAdmins <= 1) {
-      throw new ConflictException('Cannot deactivate the last active admin');
+      throw new ConflictException({
+        code: ErrorCodes.USER_LAST_ACTIVE_ADMIN_DEACTIVATE,
+        message: 'Cannot deactivate the last active admin',
+      });
     }
   }
 
@@ -335,12 +363,18 @@ export class UsersService {
     }
 
     if (actorUserId && user.id === actorUserId) {
-      throw new ConflictException('You cannot change your own admin role');
+      throw new ConflictException({
+        code: ErrorCodes.USER_SELF_ADMIN_ROLE_CHANGE,
+        message: 'You cannot change your own admin role',
+      });
     }
 
     const activeAdmins = await this.countActiveAdmins();
     if (activeAdmins <= 1) {
-      throw new ConflictException('Cannot remove the last active admin role');
+      throw new ConflictException({
+        code: ErrorCodes.USER_LAST_ACTIVE_ADMIN_ROLE_CHANGE,
+        message: 'Cannot remove the last active admin role',
+      });
     }
   }
 
@@ -353,12 +387,18 @@ export class UsersService {
     }
 
     if (actorUserId && user.id === actorUserId) {
-      throw new ConflictException('You cannot delete your own account');
+      throw new ConflictException({
+        code: ErrorCodes.USER_SELF_DELETE,
+        message: 'You cannot delete your own account',
+      });
     }
 
     const activeAdmins = await this.countActiveAdmins();
     if (activeAdmins <= 1) {
-      throw new ConflictException('Cannot delete the last active admin');
+      throw new ConflictException({
+        code: ErrorCodes.USER_LAST_ACTIVE_ADMIN_DELETE,
+        message: 'Cannot delete the last active admin',
+      });
     }
   }
 
@@ -374,7 +414,10 @@ export class UsersService {
   private async ensureUserExists(id: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.USER_NOT_FOUND,
+        message: `User with ID ${id} not found`,
+      });
     }
   }
 

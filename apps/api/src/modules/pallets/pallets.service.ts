@@ -7,6 +7,7 @@ import { PaginatedResponse } from '../../common/interceptors/transform.intercept
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 export const ENTITY_NAME = 'Pallet';
 
@@ -21,7 +22,10 @@ export class PalletsService {
 
   async create(dto: CreatePalletDto, userId: string): Promise<PalletResponseDto> {
     if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Pallet must have at least one item');
+      throw new BadRequestException({
+        code: ErrorCodes.PALLET_BAD_REQUEST,
+        message: 'Pallet must have at least one item',
+      });
     }
 
     const fieldLot = await this.prisma.fieldLot.findUnique({
@@ -38,7 +42,10 @@ export class PalletsService {
     });
 
     if (!fieldLot) {
-      throw new NotFoundException(`Field lot with ID ${dto.fieldLotId} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.FIELD_LOT_NOT_FOUND,
+        message: `Field lot with ID ${dto.fieldLotId} not found`,
+      });
     }
 
     const processedProductIds = [...new Set(dto.items.map((i) => i.processedProductId))];
@@ -54,7 +61,10 @@ export class PalletsService {
     });
 
     if (processedProducts.length !== processedProductIds.length) {
-      throw new NotFoundException('One or more processed products not found');
+      throw new NotFoundException({
+        code: ErrorCodes.PROCESSED_PRODUCT_NOT_FOUND,
+        message: 'One or more processed products not found',
+      });
     }
 
     const packagings = await this.prisma.packaging.findMany({
@@ -62,7 +72,10 @@ export class PalletsService {
     });
 
     if (packagings.length !== packagingIds.length) {
-      throw new NotFoundException('One or more packagings not found');
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: 'One or more packagings not found',
+      });
     }
 
     for (const processedProduct of processedProducts) {
@@ -75,7 +88,10 @@ export class PalletsService {
         )
       ) {
         throw new BadRequestException(
-          `Processed product ${processedProduct.code} is not allowed for the selected field lot variety`,
+          {
+            code: ErrorCodes.PALLET_BAD_REQUEST,
+            message: `Processed product ${processedProduct.code} is not allowed for the selected field lot variety`,
+          },
         );
       }
     }
@@ -268,7 +284,10 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
     return this.toResponseWithDetails(pallet);
@@ -297,7 +316,10 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Soft-deleted pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Soft-deleted pallet with ID ${id} not found`,
+      });
     }
 
     return this.toResponseWithDetails(pallet);
@@ -326,7 +348,10 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with number ${palletNumber} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with number ${palletNumber} not found`,
+      });
     }
 
     return this.toResponseWithDetails(pallet);
@@ -339,7 +364,10 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(pallet);
@@ -371,10 +399,16 @@ export class PalletsService {
     if (!pallet) {
       const deletedPallet = await this.prisma.pallet.findUnique({ where: { id } });
       if (deletedPallet?.deletedAt) {
-        throw new ConflictException(`Pallet with ID ${id} is already deleted`);
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `Pallet with ID ${id} is already deleted`,
+        });
       }
 
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(pallet);
@@ -400,11 +434,17 @@ export class PalletsService {
     });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
     if (!pallet.deletedAt) {
-      throw new ConflictException(`Pallet with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Pallet with ID ${id} is not deleted`,
+      });
     }
 
     const updated = await this.prisma.pallet.update({
@@ -431,11 +471,17 @@ export class PalletsService {
     const pallet = await this.prisma.pallet.findUnique({ where: { id } });
 
     if (!pallet) {
-      throw new NotFoundException(`Pallet with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PALLET_NOT_FOUND,
+        message: `Pallet with ID ${id} not found`,
+      });
     }
 
     if (!pallet.deletedAt) {
-      throw new ConflictException(`Pallet with ID ${id} must be soft-deleted before purge`);
+      throw new ConflictException({
+        code: ErrorCodes.PALLET_PURGE_REQUIRES_SOFT_DELETE,
+        message: `Pallet with ID ${id} must be soft-deleted before purge`,
+      });
     }
 
     await this.prisma.pallet.delete({ where: { id } });

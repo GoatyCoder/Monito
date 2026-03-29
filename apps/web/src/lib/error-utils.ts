@@ -26,10 +26,6 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
     return translated;
   }
 
-  if (typeof data?.message === 'string' && data.message.trim().length > 0) {
-    return data.message;
-  }
-
   if (Array.isArray(data?.message) && data.message.length > 0) {
     return data.message[0] ?? fallback;
   }

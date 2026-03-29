@@ -7,6 +7,7 @@ import { PaginatedResponse } from '../../common/interceptors/transform.intercept
 import { AuditQueueService } from '../../common/events/audit-queue.service';
 import { AuditOperation } from '../audit/dto/create-audit-log.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import { ErrorCodes } from '../../common/errors/error-codes';
 
 export const ENTITY_NAME = 'Packaging';
 const CODE_DB_MAX_LENGTH = 32;
@@ -30,7 +31,10 @@ export class PackagingsService {
     });
 
     if (existing) {
-      throw new ConflictException('Packaging with this code already exists');
+      throw new ConflictException({
+        code: ErrorCodes.PACKAGING_ALREADY_EXISTS,
+        message: 'Packaging with this code already exists',
+      });
     }
 
     const packaging = await this.prisma.packaging.create({
@@ -134,7 +138,10 @@ export class PackagingsService {
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(packaging);
@@ -146,7 +153,10 @@ export class PackagingsService {
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Soft-deleted packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Soft-deleted packaging with ID ${id} not found`,
+      });
     }
 
     return this.toResponse(packaging);
@@ -158,7 +168,10 @@ export class PackagingsService {
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
     if (dto.code && dto.code !== packaging.code) {
@@ -170,7 +183,10 @@ export class PackagingsService {
         },
       });
       if (existing) {
-        throw new ConflictException('Packaging with this code already exists');
+        throw new ConflictException({
+          code: ErrorCodes.PACKAGING_ALREADY_EXISTS,
+          message: 'Packaging with this code already exists',
+        });
       }
     }
 
@@ -202,10 +218,16 @@ export class PackagingsService {
     if (!packaging) {
       const deletedPackaging = await this.prisma.packaging.findUnique({ where: { id } });
       if (deletedPackaging?.deletedAt) {
-        throw new ConflictException(`Packaging with ID ${id} is already deleted`);
+        throw new ConflictException({
+          code: ErrorCodes.CONFLICT,
+          message: `Packaging with ID ${id} is already deleted`,
+        });
       }
 
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
     const oldValue = this.toResponse(packaging);
@@ -235,11 +257,17 @@ export class PackagingsService {
     });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
     if (!packaging.deletedAt) {
-      throw new ConflictException(`Packaging with ID ${id} is not deleted`);
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Packaging with ID ${id} is not deleted`,
+      });
     }
 
     const originalCode = this.extractOriginalCode(packaging.code);
@@ -252,9 +280,10 @@ export class PackagingsService {
     });
 
     if (activeWithOriginalCode) {
-      throw new ConflictException(
-        `Cannot restore packaging with ID ${id}: code ${originalCode} is already used by an active packaging`,
-      );
+      throw new ConflictException({
+        code: ErrorCodes.CONFLICT,
+        message: `Cannot restore packaging with ID ${id}: code ${originalCode} is already used by an active packaging`,
+      });
     }
 
     const updated = await this.prisma.packaging.update({
@@ -283,16 +312,25 @@ export class PackagingsService {
     const packaging = await this.prisma.packaging.findUnique({ where: { id } });
 
     if (!packaging) {
-      throw new NotFoundException(`Packaging with ID ${id} not found`);
+      throw new NotFoundException({
+        code: ErrorCodes.PACKAGING_NOT_FOUND,
+        message: `Packaging with ID ${id} not found`,
+      });
     }
 
     if (!packaging.deletedAt) {
-      throw new ConflictException(`Packaging with ID ${id} must be soft-deleted before purge`);
+      throw new ConflictException({
+        code: ErrorCodes.PACKAGING_PURGE_REQUIRES_SOFT_DELETE,
+        message: `Packaging with ID ${id} must be soft-deleted before purge`,
+      });
     }
 
     const linkedPalletItems = await this.prisma.palletItem.count({ where: { packagingId: id } });
     if (linkedPalletItems > 0) {
-      throw new ConflictException('Cannot purge packaging because it is still referenced by pallet items');
+      throw new ConflictException({
+        code: ErrorCodes.PACKAGING_PURGE_REFERENCED,
+        message: 'Cannot purge packaging because it is still referenced by pallet items',
+      });
     }
 
     await this.prisma.packaging.delete({ where: { id } });
